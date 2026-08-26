@@ -240,71 +240,7 @@ def calcular_lucro(compra_ex, compra_p, venda_ex, venda_p):
     lucro_perc = ((preco_venda_final - preco_compra_final) / preco_compra_final) * 100
     return round(lucro_perc, 2)
 
-def exibir_pagamento_pix(plano, email_cliente):
-    valor = PLANOS[plano]["preco"]
-    id_pag = gerar_id_pagamento()
-    desc = f"Plano {plano} - {email_cliente}"
-    codigo_pix, chave_pix = gerar_codigo_pix(valor, desc, email_cliente)
-    
-    st.markdown(f"""
-    <div style='background:rgba(30,41,59,0.9);border:1px solid #22c55e;border-radius:16px;padding:24px;text-align:center;margin:20px 0;'>
-    <h3 style='color:#22c55e;margin:0;'>💳 Pagamento via PIX</h3>
-    <p style='color:#94a3b8;font-size:14px;margin:10px 0;'>Plano: <strong>{plano}</strong> — Valor: <strong>R$ {valor:.2f}</strong></p>
-    <p style='color:#e2e8f0;font-size:13px;'>ID: <code style='background:#1e293b;padding:4px 8px;border-radius:4px;'>{id_pag}</code></p>
-    </div>""", unsafe_allow_html=True)
-    
-    st.info(f"🔑 **Chave Pix:** `{chave_pix}`")
-    st.info(f"👤 **Recebedor:** {CONFIG['pix_nome_recebedor']}")
-    st.code(codigo_pix, language="text")
-    st.markdown("---")
-    
-    # ✅ ETAPA 1: ANEXAR COMPROVANTE
-    st.subheader("📤 Passo 1 — Anexar Comprovante")
-    
-    # Guarda o ID do pagamento na sessão para não perder ao recarregar
-    if "id_pagamento_atual" not in st.session_state:
-        st.session_state.id_pagamento_atual = id_pag
-        st.session_state.valor_pagamento = valor
-        st.session_state.plano_pagamento = plano
-    
-    comprovante = st.file_uploader("📎 Selecione o comprovante de pagamento", type=["jpg","jpeg","png"], 
-                                     key=f"comp_{st.session_state.id_pagamento_atual}")
-    
-    if comprovante:
-        st.success(f"✅ Comprovante carregado: {comprovante.name}")
-        st.image(comprovante, width=300)
-        st.markdown("---")
-        
-        # ✅ ETAPA 2 — BOTÃO DE ENVIAR (SÓ APARECE DEPOIS DE CARREGAR A FOTO)
-        st.subheader("✅ Passo 2 — Enviar para Aprovação")
-        
-        if st.button("✅ JÁ PAGUEI — ENVIAR PARA APROVAÇÃO!", type="primary", use_container_width=True):
-            if registrar_pagamento_pendente(email_cliente, plano, valor, id_pag, comprovante.name):
-                link_whats = gerar_link_whatsapp(email_cliente, plano, valor, id_pag, comprovante.name)
-                st.success("🎉 Comprovante enviado com sucesso!")
-                st.balloons()
-                
-                st.markdown(f"""
-                <div style='text-align:center;padding:20px;background:rgba(37,211,102,0.1);border-radius:12px;margin:20px 0;'>
-                <h3 style='color:#25d366;margin:0;'>📱 Envie pelo WhatsApp</h3>
-                <a href="{link_whats}" target="_blank" style="display:inline-block;background:#25d366;color:white;padding:14px 30px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:18px;margin:20px 0;box-shadow:0 4px 12px rgba(37,211,102,0.3);">💬 CLIQUE AQUI — ENVIAR NO WHATSAPP</a>
-                <p style='color:#94a3b8;font-size:14px;'>Abre em nova aba → envie a mensagem com a imagem!</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.info("✅ Pronto! Aguarde a aprovação que chegará em breve!")
-                st.info("💡 Não precisa ficar na página aberta. Você receberá notificação!")
-                
-                # ✅ LIMPA os dados da sessão
-                for chave in ["id_pagamento_atual", "valor_pagamento", "plano_pagamento"]:
-                    if chave in st.session_state:
-                        del st.session_state[chave]
-                
-                st.stop()  # ✅ PARA AQUI — NÃO VOLTA!
-            else:
-                st.error("❌ Erro ao registrar. Contate o suporte.")
-    else:
-        st.info("👆 Selecione o comprovante acima para habilitar o botão de envio")
+def exibir_pagamento_pix
 
 def verificar_aprovacao():
     if not st.session_state.usuario.get("plano_ativo", False):
