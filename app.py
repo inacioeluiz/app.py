@@ -240,7 +240,7 @@ def calcular_lucro(compra_ex, compra_p, venda_ex, venda_p):
     lucro_perc = ((preco_venda_final - preco_compra_final) / preco_compra_final) * 100
     return round(lucro_perc, 2)
 
-def exibir_pagamento_pix
+def exibir_pagamento_pix(plano, email_cliente):
 
 def verificar_aprovacao():
     if not st.session_state.usuario.get("plano_ativo", False):
