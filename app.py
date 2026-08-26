@@ -257,19 +257,28 @@ def exibir_pagamento_pix(plano, email_cliente):
     st.info(f"👤 **Recebedor:** {CONFIG['pix_nome_recebedor']}")
     st.code(codigo_pix, language="text")
     st.markdown("---")
-    st.subheader("📤 Passo a passo")
-    st.info("1️⃣ Copie o código e pague no seu banco • 2️⃣ Tire print do comprovante • 3️⃣ Anexe abaixo")
     
-    comprovante = st.file_uploader("📎 Anexar comprovante", type=["jpg","jpeg","png"], key=f"comp_{id_pag}")
+    # ✅ ETAPA 1: ANEXAR COMPROVANTE
+    st.subheader("📤 Passo 1 — Anexar Comprovante")
+    
+    # Guarda o ID do pagamento na sessão para não perder ao recarregar
+    if "id_pagamento_atual" not in st.session_state:
+        st.session_state.id_pagamento_atual = id_pag
+        st.session_state.valor_pagamento = valor
+        st.session_state.plano_pagamento = plano
+    
+    comprovante = st.file_uploader("📎 Selecione o comprovante de pagamento", type=["jpg","jpeg","png"], 
+                                     key=f"comp_{st.session_state.id_pagamento_atual}")
     
     if comprovante:
-        st.success(f"✅ Comprovante: {comprovante.name}")
+        st.success(f"✅ Comprovante carregado: {comprovante.name}")
         st.image(comprovante, width=300)
+        st.markdown("---")
         
-    if st.button("✅ JÁ PAGUEI — ENVIAR PARA APROVAÇÃO!", type="primary", use_container_width=True):
-        if not comprovante:
-            st.error("⚠️ Por favor, anexe o comprovante primeiro!")
-        else:
+        # ✅ ETAPA 2 — BOTÃO DE ENVIAR (SÓ APARECE DEPOIS DE CARREGAR A FOTO)
+        st.subheader("✅ Passo 2 — Enviar para Aprovação")
+        
+        if st.button("✅ JÁ PAGUEI — ENVIAR PARA APROVAÇÃO!", type="primary", use_container_width=True):
             if registrar_pagamento_pendente(email_cliente, plano, valor, id_pag, comprovante.name):
                 link_whats = gerar_link_whatsapp(email_cliente, plano, valor, id_pag, comprovante.name)
                 st.success("🎉 Comprovante enviado com sucesso!")
@@ -277,18 +286,25 @@ def exibir_pagamento_pix(plano, email_cliente):
                 
                 st.markdown(f"""
                 <div style='text-align:center;padding:20px;background:rgba(37,211,102,0.1);border-radius:12px;margin:20px 0;'>
-                <h3 style='color:#25d366;margin:0;'>📱 Abra o WhatsApp para enviar o comprovante</h3>
+                <h3 style='color:#25d366;margin:0;'>📱 Envie pelo WhatsApp</h3>
                 <a href="{link_whats}" target="_blank" style="display:inline-block;background:#25d366;color:white;padding:14px 30px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:18px;margin:20px 0;box-shadow:0 4px 12px rgba(37,211,102,0.3);">💬 CLIQUE AQUI — ENVIAR NO WHATSAPP</a>
-                <p style='color:#94a3b8;font-size:14px;'>Abre em uma nova aba → envie a mensagem junto com a imagem!</p>
+                <p style='color:#94a3b8;font-size:14px;'>Abre em nova aba → envie a mensagem com a imagem!</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                st.info("✅ Depois de enviar, feche esta página — seu plano será aprovado em breve!")
-                st.markdown("---")
-                st.info("💡 Você receberá um e-mail/WhatsApp quando seu plano for aprovado!")
-                st.stop()  # ✅ PARA AQUI — NÃO VOLTA MAIS!
+                st.info("✅ Pronto! Aguarde a aprovação que chegará em breve!")
+                st.info("💡 Não precisa ficar na página aberta. Você receberá notificação!")
+                
+                # ✅ LIMPA os dados da sessão
+                for chave in ["id_pagamento_atual", "valor_pagamento", "plano_pagamento"]:
+                    if chave in st.session_state:
+                        del st.session_state[chave]
+                
+                st.stop()  # ✅ PARA AQUI — NÃO VOLTA!
             else:
                 st.error("❌ Erro ao registrar. Contate o suporte.")
+    else:
+        st.info("👆 Selecione o comprovante acima para habilitar o botão de envio")
 
 def verificar_aprovacao():
     if not st.session_state.usuario.get("plano_ativo", False):
