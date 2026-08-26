@@ -438,7 +438,7 @@ else:
             "lucro_min": limites["lucro_min"],
             "intervalo": limites["intervalo"]
         }
-    
+    user_email = st.session_state.usuario.get("email", "") if st.session_state.get("usuario") else ""
     chaves = st.session_state.usuario["chaves"]
     config_usuario = st.session_state.usuario["config"]
     
