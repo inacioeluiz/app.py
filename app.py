@@ -287,6 +287,21 @@ def verificar_aprovacao():
 
 st.set_page_config(page_title="Arbitragem AI", page_icon="🤖", layout="wide")
 
+# ======================================
+# ✅ INICIALIZAÇÃO DAS VARIÁVEIS
+# ======================================
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+if "usuario" not in st.session_state:
+    st.session_state.usuario = {}
+if "etapa_recuperacao" not in st.session_state:
+    st.session_state.etapa_recuperacao = 0
+if "email_recuperacao" not in st.session_state:
+    st.session_state.email_recuperacao = ""
+
+# ✅ VARIÁVEL FORA DO BLOCO — AQUI FUNCIONA!
+pagina = "Painel Principal"
+
 if "logado" not in st.session_state: st.session_state.logado = False
 if "usuario" not in st.session_state: st.session_state.usuario = {}
 if "pagina" not in st.session_state: st.session_state.pagina = "login"
@@ -456,7 +471,7 @@ else:
             st.session_state.logado = False
             st.session_state.usuario = {}
             st.rerun()
-if pagina == "Painel Principal":
+if st.session_state.logado and pagina == "Painel Principal":
     st.markdown("<h1>📊 Painel de Controle</h1>", unsafe_allow_html=True)
     
     if not plano_ativo:
