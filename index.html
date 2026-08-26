@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CriptoArbitrage PRO | Lucre com diferenças de preço</title>
+    <style>
+        * {margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif;}
+        :root {
+            --primaria: #6366f1;
+            --secundaria: #a855f7;
+            --destaque: #f59e0b;
+            --escuro: #0f172a;
+            --meio: #1e293b;
+            --claro: #f8fafc;
+            --sucesso: #22c55e;
+        }
+        body {
+            background: linear-gradient(135deg, var(--escuro) 0%, var(--meio) 50%, var(--escuro) 100%);
+            color: var(--claro);
+            min-height: 100vh;
+        }
+        .container {max-width: 1200px; margin: 0 auto; padding: 0 20px;}
+        
+        /* CABEÇALHO */
+        header {padding: 20px 0; position: sticky; top: 0; background: rgba(15,23,42,0.95); backdrop-filter: blur(10px); z-index: 100;}
+        nav {display: flex; justify-content: space-between; align-items: center;}
+        .logo {font-size: 28px; font-weight: 800; background: linear-gradient(90deg, var(--primaria), var(--secundaria)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
+        .nav-links {display: flex; gap: 30px; list-style: none;}
+        .nav-links a {color: #cbd5e1; text-decoration: none; font-weight: 500; transition: 0.3s;}
+        .nav-links a:hover {color: var(--primaria);}
+        .btn {padding: 12px 28px; border-radius: 50px; font-weight: 600; border: none; cursor: pointer; transition: 0.3s; text-decoration: none; display: inline-block;}
+        .btn-primario {background: linear-gradient(90deg, var(--primaria), var(--secundaria)); color: white; box-shadow: 0 4px 20px rgba(99,102,241,0.4);}
+        .btn-primario:hover {transform: translateY(-2px); box-shadow: 0 6px 25px rgba(99,102,241,0.5);}
+        .btn-destaque {background: linear-gradient(90deg, var(--destaque), #f97316); color: white; box-shadow: 0 4px 20px rgba(245,158,11,0.4);}
+        .btn-destaque:hover {transform: translateY(-2px); box-shadow: 0 6px 25px rgba(245,158,11,0.5);}
+        
+        /* HERO */
+        .hero {padding: 80px 0 100px; text-align: center;}
+        .hero h1 {font-size: clamp(36px, 8vw, 64px); line-height: 1.1; margin-bottom: 24px;}
+        .hero h1 span {background: linear-gradient(90deg, var(--destaque), var(--secundaria)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
+        .hero p {font-size: 20px; color: #94a3b8; max-width: 700px; margin: 0 auto 40px; line-height: 1.6;}
+        .hero-botoes {display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;}
+        
+        /* BENEFÍCIOS */
+        .secao {padding: 80px 0;}
+        .titulo-secao {text-align: center; font-size: 36px; margin-bottom: 60px;}
+        .titulo-secao span {color: var(--primaria);}
+        .beneficios-grid {display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;}
+        .beneficio {background: rgba(30,41,59,0.5); border: 1px solid rgba(99,102,241,0.2); border-radius: 20px; padding: 30px; transition: 0.3s;}
+        .beneficio:hover {border-color: var(--primaria); transform: translateY(-5px);}
+        .beneficio .icone {font-size: 40px; margin-bottom: 20px;}
+        .beneficio h3 {font-size: 20px; margin-bottom: 12px;}
+        .beneficio p {color: #94a3b8; line-height: 1.6;}
+        
+        /* PLANOS */
+        .planos-grid {display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; max-width: 1000px; margin: 0 auto;}
+        .plano {background: rgba(30,41,59,0.5); border: 2px solid rgba(99,102,241,0.2); border-radius: 24px; padding: 40px 30px; text-align: center; transition: 0.3s; position: relative;}
+        .plano:hover {transform: translateY(-10px);}
+        .plano.destaque {border-color: var(--destaque); transform: scale(1.05); background: linear-gradient(180deg, rgba(245,158,11,0.1), rgba(30,41,59,0.5));}
+        .plano.destaque .etiqueta {position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--destaque); color: white; padding: 4px 20px; border-radius: 20px; font-size: 12px; font-weight: 700;}
+        .plano h3 {font-size: 24px; margin-bottom: 10px;}
+        .plano .preco {font-size: 48px; font-weight: 800; margin: 20px 0;}
+        .plano .preco span {font-size: 16px; color: #94a3b8;}
+        .plano ul {list-style: none; margin: 30px 0; text-align: left;}
+        .plano li {padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);}
+        .plano li::before {content: "✅ "; color: var(--sucesso); font-weight: bold;}
+        .plano .btn {width: 100%;}
+        
+        /* DEPOIMENTOS */
+        .depoimentos-grid {display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px;}
+        .depoimento {background: rgba(30,41,59,0.5); border-radius: 20px; padding: 30px; border-left: 4px solid var(--primaria);}
+        .estrelas {color: #fbbf24; font-size: 20px; margin-bottom: 15px;}
+        .depoimento p {font-style: italic; color: #e2e8f0; margin-bottom: 20px;}
+        .autor {display: flex; align-items: center; gap: 15px;}
+        .avatar {width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(90deg, var(--primaria), var(--secundaria)); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px;}
+        
+        /* RODAPÉ */
+        footer {background: rgba(15,23,42,0.8); padding: 60px 0 30px; margin-top: 80px; border-top: 1px solid rgba(99,102,241,0.1);}
+        .footer-grid {display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; margin-bottom: 40px;}
+        .footer-col h4 {margin-bottom: 20px; color: white;}
+        .footer-col a {display: block; color: #94a3b8; text-decoration: none; margin-bottom: 10px; transition: 0.3s;}
+        .footer-col a:hover {color: var(--primaria);}
+        .copyright {text-align: center; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.05); color: #64748b; font-size: 14px;}
+        
+        /* FLOATING WHATSAPP */
+        .whatsapp {position: fixed; bottom: 30px; right: 30px; z-index: 999;}
+        .whatsapp a {
+            background: #25d366; color: white; font-size: 30px; width: 60px; height: 60px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 20px rgba(37,211,102,0.4); text-decoration: none;
+            transition: 0.3s;
+        }
+        .whatsapp a:hover {transform: scale(1.1);}
+        
+        /* RESPONSIVO */
+        @media (max-width: 768px) {
+            .nav-links {display: none;}
+            .hero h1 {font-size: 32px;}
+            .plano.destaque {transform: scale(1);}
+        }
+    </style>
+</head>
+<body>
+    <!-- WHATSAPP FLUTUANTE -->
+    <div class="whatsapp">
+        <a href="https://wa.me/55SEUNUMERO" target="_blank">💬</a>
+    </div>
+
+    <!-- CABEÇALHO -->
+    <header>
+        <div class="container">
+            <nav>
+                <div class="logo">🪙 CriptoArbitrage PRO</div>
+                <ul class="nav-links">
+                    <li><a href="#inicio">Início</a></li>
+                    <li><a href="#como-funciona">Como Funciona</a></li>
+                    <li><a href="#planos">Planos</a></li>
+                    <li><a href="#depoimentos">Depoimentos</a></li>
+                    <li><a href="#suporte">Suporte</a></li>
+                </ul>
+                <a href="https://arbitragem-ai.streamlit.app" class="btn btn-primario">🔐 Entrar</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- HERO -->
+    <section class="hero" id="inicio">
+        <div class="container">
+            <h1>Lucre com <span>Arbitragem</span> de Criptomoedas <br>de forma Automática!</h1>
+            <p>Compre mais barato em uma corretora, venda mais cara em outra e fique com o lucro. Nosso sistema escaneia o mercado 24h por dia encontrando oportunidades para você!</p>
+            <div class="hero-botoes">
+                <a href="https://arbitragem-ai.streamlit.app" class="btn btn-destaque">🚀 Começar Grátis</a>
+                <a href="#planos" class="btn btn-primario">💎 Ver Planos</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- BENEFÍCIOS -->
+    <section class="secao" id="como-funciona">
+        <div class="container">
+            <h2 class="titulo-secao">Por que escolher o <span>CriptoArbitrage PRO</span>?</h2>
+            <div class="beneficios-grid">
+                <div class="beneficio">
+                    <div class="icone">⚡</div>
+                    <h3>Análise em Tempo Real</h3>
+                    <p>Verifica diferenças de preço a cada poucos segundos. Você nunca perde uma oportunidade!</p>
+                </div>
+                <div class="beneficio">
+                    <div class="icone">🔒</div>
+                    <h3>Segurança Total</h3>
+                    <p>Suas chaves API ficam com VOCÊ. Nós nunca temos acesso a saques ou retiradas.</p>
+                </div>
+                <div class="beneficio">
+                    <div class="icone">💰</div>
+                    <h3>Baixo Risco</h3>
+                    <p>Arbitragem é uma das estratégias mais seguras do mercado. Oportunidades que existem todos os dias!</p>
+                </div>
+                <div class="beneficio">
+                    <div class="icone">📱</div>
+                    <h3>Acesse de Qualquer Lugar</h3>
+                    <p>Funciona no celular, tablet ou computador. Não precisa instalar nada!</p>
+                </div>
+                <div class="beneficio">
+                    <div class="icone">🏦</div>
+                    <h3>+4 Corretoras</h3>
+                    <p>Binance, KuCoin, MEXC e Bybit integradas. Mais corretoras = mais oportunidades!</p>
+                </div>
+                <div class="beneficio">
+                    <div class="icone">👥</div>
+                    <h3>Suporte Dedicado</h3>
+                    <p>Precisa de ajuda? Estamos aqui! Suporte prioritário para clientes Pro e Premium.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PLANOS -->
+    <section class="secao" id="planos" style="background: rgba(99,102,241,0.03);">
+        <div class="container">
+            <h2 class="titulo-secao">Escolha seu <span>Plano</span></h2>
+            <div class="planos-grid">
+                <!-- GRATUITO -->
+                <div class="plano">
+                    <h3>🟢 Gratuito</h3>
+                    <div class="preco">R$ 0<span>/mês</span></div>
+                    <p style="color:#94a3b8; margin-bottom:20px;">Ideal para começar</p>
+                    <ul>
+                        <li>3 moedas monitoradas</li>
+                        <li>2 corretoras</li>
+                        <li>Análise manual</li>
+                        <li>Relatórios básicos</li>
+                    </ul>
+                    <a href="https://arbitragem-ai.streamlit.app" class="btn btn-primario">Começar Grátis</a>
+                </div>
+
+                <!-- PRO - DESTAQUE -->
+                <div class="plano destaque">
+                    <div class="etiqueta">MAIS POPULAR</div>
+                    <h3>🚀 Pro</h3>
+                    <div class="preco">R$ 29,90<span>/mês</span></div>
+                    <p style="color:#94a3b8; margin-bottom:20px;">Para traders sérios</p>
+                    <ul>
+                        <li>8 moedas monitoradas</li>
+                        <li>4 corretoras completas</li>
+                        <li>Alertas automáticos</li>
+                        <li>Verificação a cada 60s</li>
+                        <li>Suporte prioritário</li>
+                    </ul>
+                    <a href="https://arbitragem-ai.streamlit.app" class="btn btn-destaque">Assinar Agora</a>
+                </div>
+
+                <!-- PREMIUM -->
+                <div class="plano">
+                    <h3>👑 Premium</h3>
+                    <div class="preco">R$ 79,90<span>/mês</span></div>
+                    <p style="color:#94a3b8; margin-bottom:20px;">Acesso VIP completo</p>
+                    <ul>
+                        <li>Moedas ilimitadas</li>
+                        <li>4 corretoras completas</li>
+                        <li>Verificação a cada 15s ⚡</li>
+                        <li>Histórico completo</li>
+                        <li>Suporte VIP 24/7</li>
+                        <li>Estratégias exclusivas</li>
+                    </ul>
+                    <a href="https://arbitragem-ai.streamlit.app" class="btn btn-primario">Ser VIP</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMO FUNCIONA PASSO A PASSO -->
+    <section class="secao">
+        <div class="container">
+            <h2 class="titulo-secao">3 Passos para <span>Lucrar</span> 🚀</h2>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:30px; text-align:center;">
+                <div>
+                    <div style="font-size:60px; margin-bottom:20px;">1️⃣</div>
+                    <h3 style="margin-bottom:10px;">Crie sua Conta</h3>
+                    <p style="color:#94a3b8;">É grátis! Cadastre-se em menos de 1 minuto e comece a explorar.</p>
+                </div>
+                <div>
+                    <div style="font-size:60px; margin-bottom:20px;">2️⃣</div>
+                    <h3 style="margin-bottom:10px;">Conecte suas Corretoras</h3>
+                    <p style="color:#94a3b8;">Cole suas chaves API (apenas leitura e negociação) e escolha as moedas.</p>
+                </div>
+                <div>
+                    <div style="font-size:60px; margin-bottom:20px;">3️⃣</div>
+                    <h3 style="margin-bottom:10px;">Lucre com as Diferenças!</h3>
+                    <p style="color:#94a3b8;">O sistema mostra onde está barato e onde está caro. Compre baixo, venda alto!</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DEPOIMENTOS -->
+    <section class="secao" id="depoimentos">
+        <div class="container">
+            <h2 class="titulo-secao">O que dizem nossos <span>clientes</span> 💬</h2>
+            <div class="depoimentos-grid">
+                <div class="depoimento">
+                    <div class="estrelas">⭐⭐⭐⭐⭐</div>
+                    <p>"Não acreditava no começo, mas depois da primeira semana já recuperei o investimento. O sistema encontra oportunidades reais!"</p>
+                    <div class="autor">
+                        <div class="avatar">J</div>
+                        <div>
+                            <strong>João Silva</strong><br>
+                            <span style="color:#94a3b8; font-size:14px;">Cliente Pro — 3 meses</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="depoimento">
+                    <div class="estrelas">⭐⭐⭐⭐⭐</div>
+                    <p>"Melhor ferramenta que já usei. Simples, direto e lucrativo. O alerta de 15 segundos do Premium faz toda a diferença!"</p>
+                    <div class="autor">
+                        <div class="avatar">M</div>
+                        <div>
+                            <strong>Mariana Costa</strong><br>
+                            <span style="color:#94a3b8; font-size:14px;">Cliente Premium — 5 meses</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="depoimento">
+                    <div class="estrelas">⭐⭐⭐⭐⭐</div>
+                    <p>"Comecei grátis, vi o potencial e assinei o Pro em 2 dias. Já consegui fazer meu primeiro saque de lucro. Recomendo!"</p>
+                    <div class="autor">
+                        <div class="avatar">P</div>
+                        <div>
+                            <strong>Pedro Henrique</strong><br>
+                            <span style="color:#94a3b8; font-size:14px;">Cliente Pro — 1 mês</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA FINAL -->
+    <section class="secao" style="padding:100px 0; text-align:center; background:linear-gradient(90deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1)); border-radius:24px; margin:40px;">
+        <div class="container">
+            <h2 style="font-size:36px; margin-bottom:20px;">Pronto para começar a <span style="color:#f59e0b;">lucrar?</span> 🚀</h2>
+            <p style="font-size:18px; color:#94a3b8; margin-bottom:40px;">Milhares de pessoas já estão lucrando com arbitragem. Você é o próximo!</p>
+            <a href="https://arbitragem-ai.streamlit.app" class="btn btn-destaque" style="font-size:18px; padding:16px 40px;">🔥 Criar Conta Grátis Agora!</a>
+        </div>
+    </section>
+
+    <!-- RODAPÉ -->
+    <footer id="suporte">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h4>🪙 CriptoArbitrage PRO</h4>
+                    <p style="color:#94a3b8; line-height:1.6;">O sistema mais avançado de arbitragem de criptomoedas do Brasil. Simples, seguro e lucrativo.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Links Úteis</h4>
+                    <a href="#inicio">Início</a>
+                    <a href="#como-funciona">Como Funciona</a>
+                    <a href="#planos">Planos</a>
+                    <a href="#depoimentos">Depoimentos</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Suporte</h4>
+                    <a href="mailto:suportearbitrageai@gmail.com">📧 suportearbitrageai@gmail.com</a>
+                    <a href="https://wa.me/55SEUNUMERO">💬 WhatsApp</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Legal</h4>
+                    <a href="#">Termos de Uso</a>
+                    <a href="#">Política de Privacidade</a>
+                    <a href="#">Aviso de Risco</a>
+                </div>
+            </div>
+            <div class="copyright">
+                © 2026 CriptoArbitrage PRO — Todos os direitos reservados.<br>
+                ⚠️ Ferramenta de análise apenas. Não é recomendação de investimento. Use com responsabilidade.
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
