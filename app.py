@@ -2,14 +2,8 @@ import streamlit as st
 import json
 import os
 import time
-import uuid
-import random
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
-from urllib import request
-from urllib.parse import quote
+import requests   # ✅ CERTO — é ASSIM, sem "urllib"
+from datetime import datetime
 
 # ==============================================
 # 🤖 ARBITRAGEM AI — VERSÃO COMPLETA FINAL
