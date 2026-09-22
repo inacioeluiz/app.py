@@ -234,13 +234,104 @@ def calcular_lucro(compra_ex, compra_p, venda_ex, venda_p):
     lucro_perc = ((preco_venda_final - preco_compra_final) / preco_compra_final) * 100
     return round(lucro_perc, 2)
 
+def registrar_pagamento_pendente(email, plano, valor, id_pag, nome_arquivo):
+    usuarios = carregar_json(ARQUIVO_USUARIOS)
+    if email not in usuarios:
+        return False
+    usuarios[email]["plano_escolhido"] = plano
+    usuarios[email]["valor_pago"] = valor
+    usuarios[email]["id_pagamento"] = id_pag
+    usuarios[email]["comprovante"] = nome_arquivo
+    usuarios[email]["status_pagamento"] = "pendente"
+    usuarios[email]["data_pagamento"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+    salvar_json(ARQUIVO_USUARIOS, usuarios)
+    return True
+
+
+def gerar_link_whatsapp(email, plano, valor, id_pag, arquivo):
+    texto = f"""NOVO PAGAMENTO PENDENTE! 📋
+
+👤 Cliente: {email}
+💳 Plano: {plano}
+💰 Valor: R$ {valor:.2f}
+🆔 ID: {id_pag}
+📎 Comprovante: {arquivo}
+
+Acesse o painel para aprovar! ✅"""
+    from urllib.parse import quote
+    return f"https://wa.me/{CONFIG['whatsapp_admin']}?text={quote(texto)}"
+
+
 def exibir_pagamento_pix(plano, email_cliente):
+    valor = PLANOS[plano]["preco"]
+    id_pag = gerar_id_pagamento()
+    desc = f"Plano {plano} - {email_cliente}"
+    codigo_pix, chave_pix = gerar_codigo_pix(valor, desc, email_cliente)
+
+    st.session_state["pix_plano"] = plano
+    st.session_state["pix_valor"] = valor
+    st.session_state["pix_id"] = id_pag
+    st.session_state["pix_email"] = email_cliente
+
+    st.markdown(f"""
+    <div style='background:rgba(30,41,59,0.9);border:1px solid #22c55e;border-radius:16px;padding:24px;text-align:center;margin:20px 0;'>
+    <h3 style='color:#22c55e;margin:0;'>💳 Pagamento via PIX</h3>
+    <p style='color:#94a3b8;font-size:14px;margin:10px 0;'>Plano: <strong>{plano}</strong> — Valor: <strong>R$ {valor:.2f}</strong></p>
+    <p style='color:#e2e8f0;font-size:13px;'>ID: <code style='background:#1e293b;padding:4px 8px;border-radius:4px;'>{id_pag}</code></p>
+    </div>""", unsafe_allow_html=True)
+
+    st.info(f"🔑 **Chave Pix:** `{chave_pix}`")
+    st.info(f"👤 **Recebedor:** {CONFIG['pix_nome_recebedor']}")
+    st.code(codigo_pix, language="text")
+    st.markdown("---")
+    st.subheader("📤 Passo a passo")
+    st.info("1️⃣ Copie o código e pague no seu banco • 2️⃣ Tire print do comprovante • 3️⃣ Anexe abaixo")
+
+    plano_atual = st.session_state.get("pix_plano", plano)
+    valor_atual = st.session_state.get("pix_valor", valor)
+    id_atual = st.session_state.get("pix_id", id_pag)
+    email_atual = st.session_state.get("pix_email", email_cliente)
+
+    comprovante = st.file_uploader("📎 Anexar comprovante de pagamento", type=["jpg","jpeg","png"], key=f"comp_{id_atual}")
+
+    if comprovante:
+        st.success(f"✅ Comprovante carregado: {comprovante.name}")
+        st.image(comprovante, width=300)
+        st.markdown("---")
+
+        if st.button("✅ JÁ PAGUEI — ENVIAR PARA APROVAÇÃO!", type="primary", use_container_width=True):
+            if registrar_pagamento_pendente(email_atual, plano_atual, valor_atual, id_atual, comprovante.name):
+                link_whats = gerar_link_whatsapp(email_atual, plano_atual, valor_atual, id_atual, comprovante.name)
+                st.success("🎉 Comprovante enviado com sucesso!")
+                st.balloons()
+
+                st.markdown(f"""
+                <div style='text-align:center;padding:20px;background:rgba(37,211,102,0.1);border-radius:12px;margin:20px 0;'>
+                <h3 style='color:#25d366;margin:0;'>📱 Envie pelo WhatsApp</h3>
+                <a href="{link_whats}" target="_blank" style="display:inline-block;background:#25d366;color:white;padding:14px 30px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:18px;margin:20px 0;box-shadow:0 4px 12px rgba(37,211,102,0.3);">💬 CLIQUE AQUI — ENVIAR NO WHATSAPP</a>
+                <p style='color:#94a3b8;font-size:14px;'>Abre em nova aba → envie a mensagem com a imagem!</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.info("✅ Pronto! Aguarde a aprovação que chegará em breve!")
+                st.info("💡 Não precisa ficar na página aberta. Você receberá notificação!")
+
+                for chave in ["pix_plano","pix_valor","pix_id","pix_email"]:
+                    if chave in st.session_state:
+                        del st.session_state[chave]
+
+                st.stop()
+            else:
+                st.error("❌ Erro ao registrar. Contate o suporte.")
+    else:
+        st.info("👆 Selecione o comprovante acima para habilitar o botão")
+
 
 def verificar_aprovacao():
-    pass
-    if not st.session_state.usuario.get("plano_ativo", False):
-        st.warning("⏳ **Aguardando aprovação** — Recursos liberados em breve!")
-        st.stop()
+    if st.session_state.get("usuario"):
+        if not st.session_state.usuario.get("plano_ativo", False) and st.session_state.usuario.get("status_pagamento") != "aprovado":
+            st.warning("⏳ **Aguardando aprovação** — Recursos serão liberados em breve!")
+            st.stop()
 
 st.set_page_config(page_title="Arbitragem AI", page_icon="🤖", layout="wide")
 
