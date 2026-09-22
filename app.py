@@ -243,6 +243,7 @@ def calcular_lucro(compra_ex, compra_p, venda_ex, venda_p):
 def exibir_pagamento_pix(plano, email_cliente):
 
 def verificar_aprovacao():
+    pass
     if not st.session_state.usuario.get("plano_ativo", False):
         st.warning("⏳ **Aguardando aprovação** — Recursos liberados em breve!")
         st.stop()
