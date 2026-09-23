@@ -499,39 +499,7 @@ def enviar_email(destinatario, assunto, mensagem_html):
         return False, f"Erro: {str(e)}"
 
 # ==============================================
-# FUNÇÃO DE ENVIO DE E-MAIL
-# ==============================================
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-def enviar_email(destinatario, assunto, mensagem_html):
-    try:
-        remetente = CONFIG.get("email_remetente", "")
-        senha = CONFIG.get("senha_app_email", "")
-        servidor_smtp = CONFIG.get("smtp_servidor", "smtp.gmail.com")
-        porta = CONFIG.get("smtp_porta", 587)
-        
-        if not remetente or not senha:
-            return False, "Configurações de e-mail incompletas"
-        
-        msg = MIMEMultipart()
-        msg["From"] = remetente
-        msg["To"] = destinatario
-        msg["Subject"] = assunto
-        msg.attach(MIMEText(mensagem_html, "html"))
-        
-        with smtplib.SMTP(servidor_smtp, porta) as servidor:
-            servidor.starttls()
-            servidor.login(remetente, senha)
-            servidor.send_message(msg)
-        
-        return True, "E-mail enviado!"
-    except Exception as e:
-        return False, f"Erro: {str(e)}"
-
-# ==============================================
-# 🛠️ PAINEL DE ADMINISTRAÇÃO
+# PAINEL DE ADMINISTRAÇÃO
 # ==============================================
     elif pagina == "Painel de Administracao":
         if st.session_state.get("admin_logado") != True:
@@ -544,15 +512,16 @@ def enviar_email(destinatario, assunto, mensagem_html):
                     st.error("Senha incorreta!")
             st.stop()
         
-        st.header("PAINEL DE ADMINISTRAÇÃO")
+        st.header("PAINEL DE ADMINISTRACAO")
         st.markdown("---")
-        aba_admin1, aba_admin2, aba_admin3 = st.tabs(["📋 Pagamentos", "⚙️ Sistema", "📧 E-mail"])
+        
+        aba_admin1, aba_admin2, aba_admin3 = st.tabs(["Pagamentos", "Sistema", "E-mail"])
         
         with aba_admin1:
-            st.subheader("🔔 Pagamentos Pendentes")
+            st.subheader("Pagamentos Pendentes")
             if "notificacoes" in st.session_state and st.session_state["notificacoes"]:
                 for notif in st.session_state["notificacoes"][:5]:
-                    icone = "🟢" if notif["lida"] else "🔴"
+                    icone = "OK" if notif["lida"] else "NOVO"
                     st.info(f"{icone} {notif['hora']} — {notif['email']} | {notif['plano']} | R$ {notif['valor']:.2f}")
             st.markdown("---")
             
@@ -564,38 +533,38 @@ def enviar_email(destinatario, assunto, mensagem_html):
             }
             
             if pendentes:
-                st.subheader(f"⏳ {len(pendentes)} Aguardando VERIFICAÇÃO")
+                st.subheader(f"{len(pendentes)} Aguardando VERIFICACAO")
                 st.markdown("---")
                 for email, dados in pendentes.items():
-                    with st.expander(f"📋 {email} — {dados.get('plano_escolhido', '—')}"):
-                        st.write(f"💰 Valor: R$ {dados.get('valor_pago', 0):.2f}")
-                        st.write(f"🆔 ID Pagamento: {dados.get('id_pagamento', '—')}")
-                        st.write(f"📅 Data: {dados.get('data_pagamento', '—')}")
+                    with st.expander(f"{email} — {dados.get('plano_escolhido', '—')}"):
+                        st.write(f"Valor: R$ {dados.get('valor_pago', 0):.2f}")
+                        st.write(f"ID Pagamento: {dados.get('id_pagamento', '—')}")
+                        st.write(f"Data: {dados.get('data_pagamento', '—')}")
                         
                         caminho_img = dados.get("caminho_comprovante", "")
                         if caminho_img and os.path.exists(caminho_img):
-                            st.markdown("### 📎 COMPROVANTE ENVIADO:")
+                            st.markdown("### COMPROVANTE ENVIADO:")
                             st.image(caminho_img, caption=f"Comprovante — {email}", width=400)
-                            st.success("✅ Imagem carregada — Verifique a originalidade!")
+                            st.success("Imagem carregada — Verifique a originalidade!")
                         else:
-                            st.warning("⚠️ Nenhuma imagem anexada!")
+                            st.warning("Nenhuma imagem anexada!")
                         
                         col_aprov, col_rej = st.columns(2)
                         with col_aprov:
-                            if st.button(f"✅ APROVAR E LIBERAR", key=f"apr_{email}", type="primary"):
+                            if st.button(f"APROVAR E LIBERAR", key=f"apr_{email}", type="primary"):
                                 usuarios[email]["status_pagamento"] = "aprovado"
                                 usuarios[email]["plano_ativo"] = True
                                 salvar_json(ARQUIVO_USUARIOS, usuarios)
                                 
                                 if CONFIG.get("email_remetente") and CONFIG.get("senha_app_email"):
-                                    assunto = "✅ Pagamento APROVADO — Acesso Liberado!"
+                                    assunto = "Pagamento APROVADO — Acesso Liberado!"
                                     html = f"""
                                     <html>
                                     <body style="font-family:Arial,sans-serif;max-width:600px;margin:0;padding:20px;background:#f9fafb;">
-                                    <div style="background:white;border-radius:12px;padding:25px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                                    <h2 style="color:#22c55e;margin-top:0;">✅ Seu plano foi liberado!</h2>
-                                    <p>Olá, <strong>{email}</strong>,</p>
-                                    <p>Seu pagamento foi confirmado e o plano <strong>{dados.get('plano_escolhido', '—')}</strong> está ativo!</p>
+                                    <div style="background:white;border-radius:12px;padding:25px;">
+                                    <h2 style="color:#22c55e;">Seu plano foi liberado!</h2>
+                                    <p>Olá, {email},</p>
+                                    <p>Seu pagamento foi confirmado e o plano {dados.get('plano_escolhido', '—')} está ativo!</p>
                                     <p>Acesse o aplicativo e comece a usar agora mesmo.</p>
                                     <p style="color:#999;font-size:12px;margin-top:30px;">Arbitragem AI © 2026</p>
                                     </div>
@@ -604,27 +573,27 @@ def enviar_email(destinatario, assunto, mensagem_html):
                                     """
                                     enviado, _ = enviar_email(email, assunto, html)
                                     if enviado:
-                                        st.info("📧 E-mail enviado ao cliente!")
+                                        st.info("E-mail enviado ao cliente!")
                                 
-                                st.success(f"✅ {email} — PLANO LIBERADO!")
+                                st.success(f"{email} — PLANO LIBERADO!")
                                 st.balloons()
                                 st.rerun()
                         with col_rej:
-                            if st.button(f"❌ REJEITAR", key=f"rej_{email}"):
+                            if st.button(f"REJEITAR", key=f"rej_{email}"):
                                 usuarios[email]["status_pagamento"] = "rejeitado"
                                 salvar_json(ARQUIVO_USUARIOS, usuarios)
-                                st.warning(f"❌ {email} — REJEITADO!")
+                                st.warning(f"{email} — REJEITADO!")
                                 st.rerun()
             else:
-                st.info("✅ Nenhum pagamento pendente.")
+                st.info("Nenhum pagamento pendente.")
             
             st.markdown("---")
-            st.subheader("📊 Todos os Clientes")
+            st.subheader("Todos os Clientes")
             if not usuarios:
                 st.info("Ainda não há clientes.")
             else:
                 for email, dados in usuarios.items():
-                    icone = {"aprovado":"✅", "pendente":"⏳", "rejeitado":"❌"}.get(dados.get("status_pagamento","aprovado"), "❓")
+                    icone = {"aprovado":"OK", "pendente":"PENDENTE", "rejeitado":"REJEITADO"}.get(dados.get("status_pagamento","aprovado"), "—")
                     plano_atual = dados.get("plano", "Gratuito")
                     status = dados.get("status_pagamento", "aprovado")
                     with st.expander(f"{icone} {email} | Plano: {plano_atual} | {status.upper()}"):
@@ -635,87 +604,87 @@ def enviar_email(destinatario, assunto, mensagem_html):
                                 index=list(PLANOS.keys()).index(plano_atual),
                                 key=f"plano_{email}"
                             )
-                            if st.button(f"🔄 Aplicar", key=f"apl_{email}"):
+                            if st.button(f"Aplicar", key=f"apl_{email}"):
                                 usuarios[email]["plano"] = novo_plano
                                 if novo_plano == "Gratuito":
                                     usuarios[email]["status_pagamento"] = "aprovado"
                                     usuarios[email]["plano_ativo"] = True
                                 salvar_json(ARQUIVO_USUARIOS, usuarios)
-                                st.success(f"✅ Plano alterado para {novo_plano}!")
+                                st.success(f"Plano alterado para {novo_plano}!")
                                 st.rerun()
                         with col2:
-                            st.write(f"📅 Cadastro: {dados.get('data_cadastro', '—')}")
-                            st.write(f"🔑 Status: {status}")
-                            st.write(f"⚡ Ativo: {'SIM' if dados.get('plano_ativo', False) else 'NÃO'}")
+                            st.write(f"Cadastro: {dados.get('data_cadastro', '—')}")
+                            st.write(f"Status: {status}")
+                            st.write(f"Ativo: {'SIM' if dados.get('plano_ativo', False) else 'NAO'}")
                             if dados.get("caminho_comprovante") and os.path.exists(dados.get("caminho_comprovante")):
                                 st.image(dados.get("caminho_comprovante"), width=200, caption="Comprovante")
                         with col3:
-                            if st.button("🗑️ EXCLUIR", key=f"del_{email}"):
+                            if st.button("EXCLUIR", key=f"del_{email}"):
                                 if f"conf_del_{email}" not in st.session_state:
                                     st.session_state[f"conf_del_{email}"] = True
-                                    st.warning(f"⚠️ Clique NOVAMENTE para excluir {email}")
+                                    st.warning(f"Clique NOVAMENTE para excluir {email}")
                                 else:
                                     if dados.get("caminho_comprovante") and os.path.exists(dados.get("caminho_comprovante")):
                                         os.remove(dados.get("caminho_comprovante"))
                                     del usuarios[email]
                                     salvar_json(ARQUIVO_USUARIOS, usuarios)
-                                    st.success(f"🗑️ {email} — EXCLUÍDO!")
+                                    st.success(f"{email} — EXCLUIDO!")
                                     if f"conf_del_{email}" in st.session_state:
                                         del st.session_state[f"conf_del_{email}"]
                                     st.rerun()
         
         with aba_admin2:
-            st.subheader("💰 Dados do Sistema")
+            st.subheader("Dados do Sistema")
             novo_nome = st.text_input("Nome do recebedor do PIX", value=CONFIG["pix_nome_recebedor"])
             nova_chave = st.text_input("Chave PIX", value=CONFIG["pix_chave"])
             novo_email_sup = st.text_input("E-mail de suporte", value=CONFIG["email_suporte"])
             nova_chave_cmc = st.text_input("API Key CoinMarketCap (opcional)", value=CONFIG.get("coinmarketcap_api_key", ""), type="password")
             novo_whatsapp = st.text_input("WhatsApp do Administrador", value=CONFIG["whatsapp_admin"])
             
-            if st.button("💾 SALVAR DADOS DO SISTEMA", type="primary"):
+            if st.button("SALVAR DADOS DO SISTEMA", type="primary"):
                 CONFIG["pix_nome_recebedor"] = novo_nome
                 CONFIG["pix_chave"] = nova_chave
                 CONFIG["email_suporte"] = novo_email_sup
                 CONFIG["coinmarketcap_api_key"] = nova_chave_cmc
                 CONFIG["whatsapp_admin"] = novo_whatsapp
-                st.success("✅ Dados salvos! Atualize a página.")
+                st.success("Dados salvos! Atualize a pagina.")
         
         with aba_admin3:
-            st.subheader("📧 Configurações de E-mail")
-            st.info("Preencha abaixo para receber notificações e avisar os clientes por e-mail.")
+            st.subheader("Configuracoes de E-mail")
+            st.info("Preencha abaixo para receber notificacoes e avisar os clientes por e-mail.")
             
             email_rem = st.text_input("E-mail Remetente", value=CONFIG.get("email_remetente", ""))
             senha_app = st.text_input("Senha de Aplicativo", value=CONFIG.get("senha_app_email", ""), type="password",
-                                      help="Não é a senha normal! Para Gmail: ative verificação em 2 etapas → gere 'Senha de App'")
+                                      help="Para Gmail: ative verificacao em 2 etapas -> gere 'Senha de App'")
             smtp_serv = st.text_input("Servidor SMTP", value=CONFIG.get("smtp_servidor", "smtp.gmail.com"))
             smtp_port = st.number_input("Porta SMTP", value=CONFIG.get("smtp_porta", 587))
             
-            if st.button("💾 SALVAR CONFIGURAÇÕES DE E-MAIL", type="primary"):
+            if st.button("SALVAR CONFIGURACOES DE E-MAIL", type="primary"):
                 CONFIG["email_remetente"] = email_rem
                 CONFIG["senha_app_email"] = senha_app
                 CONFIG["smtp_servidor"] = smtp_serv
                 CONFIG["smtp_porta"] = int(smtp_port)
-                st.success("✅ Configurações de e-mail salvas!")
+                st.success("Configuracoes de e-mail salvas!")
             
             st.markdown("---")
-            st.subheader("🧪 Testar Envio")
+            st.subheader("Testar Envio")
             email_teste = st.text_input("E-mail para teste", placeholder="seuemail@exemplo.com")
-            if st.button("📤 ENVIAR E-MAIL DE TESTE"):
+            if st.button("ENVIAR E-MAIL DE TESTE"):
                 if not CONFIG.get("email_remetente") or not CONFIG.get("senha_app_email"):
-                    st.error("⚠️ Preencha e salve as configurações acima primeiro!")
+                    st.error("Preencha e salve as configuracoes acima primeiro!")
                 else:
-                    assunto = "✅ Teste — Arbitragem AI"
+                    assunto = "Teste — Arbitragem AI"
                     html = """
                     <html>
                     <body style="font-family:Arial,sans-serif;padding:20px;">
-                    <h2 style="color:#22c55e;">✅ Funcionou!</h2>
-                    <p>O e-mail está configurado corretamente.</p>
+                    <h2 style="color:#22c55e;">Funcionou!</h2>
+                    <p>O e-mail esta configurado corretamente.</p>
                     <p>Arbitragem AI © 2026</p>
                     </body>
                     </html>
                     """
                     enviado, msg = enviar_email(email_teste, assunto, html)
                     if enviado:
-                        st.success("✅ E-mail enviado com sucesso! Verifique a caixa de entrada.")
+                        st.success("E-mail enviado com sucesso! Verifique a caixa de entrada.")
                     else:
-                        st.error(f"❌ Erro: {msg}")
+                        st.error(f"Erro: {msg}")
