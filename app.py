@@ -402,23 +402,22 @@ Via Arbitragem AI 🤖"""
             """, unsafe_allow_html=True)
 
 # ==============================================
-# 🛠️ PAINEL DE ADMINISTRAÇÃO
+# 🛠️ PAINEL DE ADMINISTRAÇÃO — ATUALIZADO!
 # ==============================================
 def painel_administracao():
     st.header("🛠️ PAINEL DE ADMINISTRAÇÃO")
-    st.info("Aprove pagamentos e libera os planos dos clientes!")
+    st.info("Aprove pagamentos, altere planos e exclua clientes!")
     
     usuarios = carregar_json(ARQUIVO_USUARIOS)
     
+    # PENDENTES
     pendentes = {
         email: dados 
         for email, dados in usuarios.items()
         if dados.get("status_pagamento") == "pendente" and not dados.get("plano_ativo", False)
     }
     
-    if not pendentes:
-        st.success("✅ Nenhum pagamento pendente!")
-    else:
+    if pendentes:
         st.subheader(f"⏳ {len(pendentes)} Aguardando Aprovação")
         st.markdown("---")
         
@@ -445,11 +444,55 @@ def painel_administracao():
                         st.warning(f"❌ {email} — Rejeitado!")
                         st.rerun()
     
+    # TODOS OS CLIENTES — PLANO AO LADO + EXCLUIR
     st.markdown("---")
     st.subheader("📊 Todos os Clientes")
+    
+    if not usuarios:
+        st.info("Ainda não há clientes cadastrados.")
+        return
+    
     for email, dados in usuarios.items():
         icone = {"aprovado":"✅", "pendente":"⏳", "rejeitado":"❌"}.get(dados.get("status_pagamento","aprovado"), "❓")
-        st.write(f"{icone} **{email}** — {dados.get('plano','Gratuito')} — {dados.get('status_pagamento','aprovado').upper()}")
+        plano_atual = dados.get("plano", "Gratuito")
+        status = dados.get("status_pagamento", "aprovado")
+        
+        with st.expander(f"{icone} {email} | Plano: {plano_atual} | {status.upper()}"):
+            col1, col2, col3 = st.columns([2, 2, 1])
+            
+            with col1:
+                novo_plano = st.selectbox(
+                    "Alterar Plano",
+                    list(PLANOS.keys()),
+                    index=list(PLANOS.keys()).index(plano_atual),
+                    key=f"plano_{email}"
+                )
+                if st.button(f"🔄 Aplicar", key=f"apl_{email}"):
+                    usuarios[email]["plano"] = novo_plano
+                    if novo_plano == "Gratuito":
+                        usuarios[email]["status_pagamento"] = "aprovado"
+                        usuarios[email]["plano_ativo"] = True
+                    salvar_json(ARQUIVO_USUARIOS, usuarios)
+                    st.success(f"✅ Plano alterado para {novo_plano}!")
+                    st.rerun()
+            
+            with col2:
+                st.write(f"📅 Cadastro: {dados.get('data_cadastro', '—')}")
+                st.write(f"🔑 Status: {status}")
+                st.write(f"⚡ Ativo: {'SIM' if dados.get('plano_ativo', False) else 'NÃO'}")
+            
+            with col3:
+                if st.button("🗑️ EXCLUIR", key=f"del_{email}"):
+                    if f"conf_del_{email}" not in st.session_state:
+                        st.session_state[f"conf_del_{email}"] = True
+                        st.warning(f"⚠️ Clique NOVAMENTE para confirmar exclusão de {email}")
+                    else:
+                        del usuarios[email]
+                        salvar_json(ARQUIVO_USUARIOS, usuarios)
+                        st.success(f"🗑️ {email} — EXCLUÍDO do sistema!")
+                        if f"conf_del_{email}" in st.session_state:
+                            del st.session_state[f"conf_del_{email}"]
+                        st.rerun()
 
 # ==============================================
 # 🚀 INTERFACE PRINCIPAL
