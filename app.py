@@ -198,19 +198,62 @@ def exibir_pagamento_pix(plano, email_cliente):
         st.info("👆 Selecione o comprovante acima para habilitar o botão")
 
 # ==============================================
-# 🔍 BUSCA DE PREÇOS — CORRIGIDA E SIMPLIFICADA
+# 🔍 BUSCA DE PREÇOS — FONTES ALTERNATIVAS
 # ==============================================
-def buscar_preco_binance(simbolo):
-    """Função exclusiva para Binance - mais confiável e rápida"""
+@st.cache_data(ttl=30)  # Atualiza a cada 30 segundos
+def buscar_precos_rodape():
+    """Tenta várias fontes até conseguir os preços"""
+    moedas = ["BTC", "ETH", "SOL", "XRP", "ADA"]
+    precos = {}
+    
+    # Fonte 1: CoinGecko (mais confiável para o Streamlit)
     try:
-        url = f"https://api.binance.com/api/v3/ticker/price?symbol={simbolo.upper()}USDT"
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,cardano&vs_currencies=usd"
         resp = requests.get(url, timeout=10)
         dados = resp.json()
-        if "price" in dados:
-            return float(dados["price"])
+        mapeamento = {
+            "BTC": "bitcoin",
+            "ETH": "ethereum",
+            "SOL": "solana",
+            "XRP": "ripple",
+            "ADA": "cardano"
+        }
+        for sigla in moedas:
+            id_gecko = mapeamento[sigla]
+            if id_gecko in dados and "usd" in dados[id_gecko]:
+                precos[sigla] = dados[id_gecko]["usd"]
+        if len(precos) == 5:
+            return precos
     except Exception as e:
         pass
-    return None
+    
+    # Fonte 2: Binance direto
+    try:
+        for sigla in moedas:
+            url = f"https://api.binance.com/api/v3/ticker/price?symbol={sigla}USDT"
+            resp = requests.get(url, timeout=8)
+            dados = resp.json()
+            if "price" in dados:
+                precos[sigla] = float(dados["price"])
+        if len(precos) == 5:
+            return precos
+    except Exception as e:
+        pass
+    
+    # Fonte 3: Coinbase
+    try:
+        for sigla in moedas:
+            par = "BTC-USD" if sigla == "BTC" else f"{sigla}-USD"
+            url = f"https://api.coinbase.com/v2/prices/{par}/spot"
+            resp = requests.get(url, timeout=8)
+            dados = resp.json()
+            if "data" in dados and "amount" in dados["data"]:
+                precos[sigla] = float(dados["data"]["amount"])
+        return precos
+    except:
+        pass
+    
+    return precos
 
 def buscar_preco_bolsa(simbolo, corretora):
     par = simbolo.upper() + "USDT"
@@ -236,7 +279,7 @@ def buscar_preco_bolsa(simbolo, corretora):
             return float(dados[0]["last"])
         elif corretora == "OKX" and dados.get("code") == "0" and "data" in dados:
             return float(dados["data"][0]["last"])
-    except Exception as e:
+    except:
         pass
     return None
 
@@ -296,14 +339,15 @@ def exibir_historico():
 # ==============================================
 def exibir_resumo_mercado():
     st.title("📊 Resumo de Mercado")
-    st.info("Preços em tempo real — Binance")
+    st.info("Preços em tempo real")
     moedas = [("BTC", "Bitcoin"), ("ETH", "Ethereum"), ("SOL", "Solana"), ("XRP", "Ripple"), ("ADA", "Cardano")]
+    precos = buscar_precos_rodape()
     cols = st.columns(len(moedas))
     for idx, (sigla, nome) in enumerate(moedas):
-        preco = buscar_preco_binance(sigla)
         with cols[idx]:
-            if preco:
-                st.metric(sigla, f"${preco:,.2f}")
+            p = precos.get(sigla)
+            if p:
+                st.metric(sigla, f"${p:,.2f}")
             else:
                 st.metric(sigla, "—")
 
@@ -505,16 +549,13 @@ def painel_administracao():
                         st.rerun()
 
 # ==============================================
-# 📡 RODAPÉ — AGORA COM FUNÇÃO CORRIGIDA
+# 📡 RODAPÉ — COM CACHE E VÁRIAS FONTES
 # ==============================================
 def exibir_rodape_precos():
     moedas_rodape = ["BTC", "ETH", "SOL", "XRP", "ADA"]
     
-    precos = {}
-    for sigla in moedas_rodape:
-        # Usa função exclusiva e simplificada para Binance
-        p = buscar_preco_binance(sigla)
-        precos[sigla] = p
+    # Busca com cache de 30 segundos
+    precos = buscar_precos_rodape()
     
     st.markdown("<hr style='margin:0.3rem 0;opacity:0.2'>", unsafe_allow_html=True)
     
@@ -527,7 +568,8 @@ def exibir_rodape_precos():
             else:
                 st.markdown(f"<div style='text-align:center;line-height:1.1;'><span style='font-size:13px;color:#94a3b8;'>{sigla}</span><br><span style='font-size:13px;color:#ef4444;'>Indisponível</span></div>", unsafe_allow_html=True)
     
-    st.markdown(f"<div style='text-align:center;font-size:11px;color:#64748b;padding:4px 0;'>Dados: Binance • Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} • Arbitragem AI © 2026</div>", unsafe_allow_html=True)
+    fonte = "CoinGecko" if len(precos) == 5 else ("Binance" if precos else "Offline")
+    st.markdown(f"<div style='text-align:center;font-size:11px;color:#64748b;padding:4px 0;'>Dados: {fonte} • Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} • Arbitragem AI © 2026</div>", unsafe_allow_html=True)
 
 # ==============================================
 # 🚀 INTERFACE PRINCIPAL
