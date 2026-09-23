@@ -542,7 +542,8 @@ def tela_configurar_apis():
         st.info("Nenhuma corretora conectada ainda.")
     else:
         for corretora, dados in apis_salvas.items():
-            with st.expander(f"✅ {corretora} — Salvo em {dados['data_salvo']}"):
+            data_salvo = dados.get('data_salvo', '—')  # CORREÇÃO: valor padrão se não existir
+            with st.expander(f"✅ {corretora} — Salvo em {data_salvo}"):
                 st.write(f"API Key: {dados['api_key'][:6]}...{dados['api_key'][-4:]}")
                 if st.button(f"❌ Remover {corretora}", key=f"del_{corretora}"):
                     del usuarios[email]["apis_corretoras"][corretora]
