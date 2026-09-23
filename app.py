@@ -852,11 +852,12 @@ else:
             for i, a in enumerate(alertas):
                 st.markdown(f"{i+1}. {a['moeda']} → {a['lucro_alvo']}% | {'✅ Ativo' if a['ativa'] else '⏸️ Inativo'}")
     
-    # 🧮 CALCULADORA
+    # 🧮 CALCULADORA DE LUCRO
     elif pagina == "🧮 Calculadora de Lucro":
         st.header("🧮 Calculadora de Lucro")
         st.markdown("---")
         col1, col2 = st.columns(2)
+        
         with col1:
             preco_compra = st.number_input("Preço de Compra (US$)", min_value=0.0, step=0.0001, format="%.4f")
             preco_venda = st.number_input("Preço de Venda (US$)", min_value=0.0, step=0.0001, format="%.4f")
@@ -864,18 +865,18 @@ else:
         
         with col2:
             st.info("📊 Resultado")
-            if compra > 0 and preco_venda > 0 and valor_investido > 0:
-                qtd_moedas = valor_investido / compra
-                valor_venda = qtd_moedas * preco_venda
-                lucro_bruto = valor_venda - valor_investido
+            if preco_compra > 0 and preco_venda > 0 and valor_investido > 0:
+                qtd_moedas = valor_investido / preco_compra
+                valor_total_venda = qtd_moedas * preco_venda
+                lucro_bruto = valor_total_venda - valor_investido
                 taxa_compra = CORRETORAS["Binance"]["taxa_compra"] / 100
                 taxa_venda = CORRETORAS["Binance"]["taxa_venda"] / 100
-                custos = (valor_investido * taxa_compra) + (valor_venda * taxa_venda)
+                custos = (valor_investido * taxa_compra) + (valor_total_venda * taxa_venda)
                 lucro_liquido = lucro_bruto - custos
                 percentual = (lucro_liquido / valor_investido) * 100 if valor_investido > 0 else 0
                 
                 st.metric("Quantidade de Moedas", f"{qtd_moedas:.6f}")
-                st.metric("Valor na Venda", f"US$ {valor_venda:.2f}")
+                st.metric("Valor na Venda", f"US$ {valor_total_venda:.2f}")
                 st.metric("Lucro Bruto", f"US$ {lucro_bruto:.2f}")
                 st.metric("Taxas Estimadas", f"US$ {custos:.2f}")
                 st.metric("💵 LUCRO LÍQUIDO", f"US$ {lucro_liquido:.2f}", f"{percentual:.2f}%")
