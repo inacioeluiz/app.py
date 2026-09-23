@@ -501,8 +501,43 @@ def enviar_email(destinatario, assunto, mensagem_html):
 # ==============================================
 # 🛠️ PAINEL DE ADMINISTRAÇÃO
 # ==============================================
+# ==============================================
+# FUNÇÃO DE ENVIO DE E-MAIL
+# ==============================================
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def enviar_email(destinatario, assunto, mensagem_html):
+    try:
+        remetente = CONFIG.get("email_remetente", "")
+        senha = CONFIG.get("senha_app_email", "")
+        servidor_smtp = CONFIG.get("smtp_servidor", "smtp.gmail.com")
+        porta = CONFIG.get("smtp_porta", 587)
+        
+        if not remetente or not senha:
+            return False, "Configurações de e-mail incompletas"
+        
+        msg = MIMEMultipart()
+        msg["From"] = remetente
+        msg["To"] = destinatario
+        msg["Subject"] = assunto
+        msg.attach(MIMEText(mensagem_html, "html"))
+        
+        with smtplib.SMTP(servidor_smtp, porta) as servidor:
+            servidor.starttls()
+            servidor.login(remetente, senha)
+            servidor.send_message(msg)
+        
+        return True, "E-mail enviado!"
+    except Exception as e:
+        return False, f"Erro: {str(e)}"
+
+# ==============================================
+# 🛠️ PAINEL DE ADMINISTRAÇÃO
+# ==============================================
     elif pagina == "🛠️ Painel de Administração":
-    if st.session_state.get("admin_logado") != True:
+        if st.session_state.get("admin_logado") != True:
             senha_admin = st.text_input("🔐 Senha de Administrador", type="password")
             if st.button("🔑 ENTRAR", type="primary"):
                 if senha_admin == "admin123":
@@ -515,7 +550,6 @@ def enviar_email(destinatario, assunto, mensagem_html):
         st.header("🛠️ PAINEL DE ADMINISTRAÇÃO")
         st.markdown("---")
         
-        # 📬 ABA DE CONFIGURAÇÕES
         aba_admin1, aba_admin2, aba_admin3 = st.tabs(["📋 Pagamentos", "⚙️ Sistema", "📧 E-mail"])
         
         with aba_admin1:
@@ -557,7 +591,6 @@ def enviar_email(destinatario, assunto, mensagem_html):
                                 usuarios[email]["plano_ativo"] = True
                                 salvar_json(ARQUIVO_USUARIOS, usuarios)
                                 
-                                # ✅ ENVIAR E-MAIL PARA O CLIENTE
                                 if CONFIG.get("email_remetente") and CONFIG.get("senha_app_email"):
                                     assunto = "✅ Pagamento APROVADO — Acesso Liberado!"
                                     html = f"""
