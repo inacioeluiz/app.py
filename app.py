@@ -546,7 +546,6 @@ def enviar_email(destinatario, assunto, mensagem_html):
         
         st.header("PAINEL DE ADMINISTRAÇÃO")
         st.markdown("---")
-        
         aba_admin1, aba_admin2, aba_admin3 = st.tabs(["📋 Pagamentos", "⚙️ Sistema", "📧 E-mail"])
         
         with aba_admin1:
