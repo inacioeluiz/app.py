@@ -6,20 +6,20 @@ from datetime import datetime
 from urllib.parse import quote
 
 # ==============================================
-# ⚙️ CONFIGURAÇÕES — TUDO NO LUGAR CERTO!
+# ⚙️ CONFIGURAÇÕES — COLOQUE SEUS DADOS AQUI!
 # ==============================================
 st.set_page_config(page_title="Arbitragem AI", page_icon="🤖", layout="wide")
 
 CONFIG = {
-    "pix_nome_recebedor": "Seu Nome Completo",
-    "pix_chave": "sua.chave.pix@exemplo.com",
+    "pix_nome_recebedor": "Inacio Silva",
+    "pix_chave": "11571293744",
     "whatsapp_admin": "5521997524939",
-    "email_suporte": "seuemail@exemplo.com",
-    "coinmarketcap_api_key": ""  # ✅ NOME CORRETO!
+    "email_suporte": "suportearbitrageai@gmail.com"
 }
 
-SENHA_ADMIN = "admin123"
+SENHA_ADMIN = "1911Gilson@"
 ARQUIVO_USUARIOS = "usuarios.json"
+ARQUIVO_LEMBRAR = "lembrar_me.json"
 PASTA_COMPROVANTES = "comprovantes"
 
 os.makedirs(PASTA_COMPROVANTES, exist_ok=True)
@@ -233,14 +233,13 @@ def exibir_escolha_planos(email_cliente):
                     st.stop()
 
 # ==============================================
-# 🔍 PREÇOS — CORRIGIDO COM VERIFICAÇÃO SEGURA!
+# 🔍 PREÇOS — COM VERIFICAÇÃO SEGURA
 # ==============================================
 @st.cache_data(ttl=60)
 def buscar_precos_rodape():
     moedas = ["BTC", "ETH", "SOL", "XRP", "ADA"]
     precos = {}
     
-    # ✅ VERIFICAÇÃO SEGURA — Sem KeyError!
     chave_cmc = CONFIG.get("coinmarketcap_api_key", "")
     if chave_cmc and chave_cmc.strip():
         try:
@@ -260,7 +259,6 @@ def buscar_precos_rodape():
         except:
             pass
     
-    # Fonte 2: CoinGecko
     try:
         url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,cardano&vs_currencies=usd"
         resp = requests.get(url, timeout=10)
@@ -275,7 +273,6 @@ def buscar_precos_rodape():
     except:
         pass
     
-    # Fonte 3: Binance
     try:
         for sigla in moedas:
             resp = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sigla}USDT", timeout=8)
@@ -330,7 +327,7 @@ def escanear_oportunidades(lista_moedas=["BTC", "ETH", "SOL", "XRP", "ADA", "DOG
             mais_barata = min(precos.items(), key=lambda x: x[1])
             mais_cara = max(precos.items(), key=lambda x: x[1])
             spread_pct = ((mais_cara[1] - mais_barata[1]) / mais_barata[1]) * 100
-            if spread_pct >= 0.1:
+            if spread_pct >= 0.05:
                 oportunidades.append({
                     "moeda": moeda,
                     "comprar_bolsa": mais_barata[0],
@@ -475,7 +472,7 @@ def painel_administracao():
         st.success("✅ Salvo! Atualize a página!")
 
 # ==============================================
-# 🔐 LOGIN
+# 🔐 LOGIN COM "LEMBRAR-ME"
 # ==============================================
 def verificar_login(email, senha):
     usuarios = carregar_json(ARQUIVO_USUARIOS)
@@ -511,6 +508,23 @@ def carregar_dados_usuario(email, plano_padrao="Gratuito"):
         "config": {"lucro_min": 0.3, "intervalo": 60}
     })
 
+def salvar_lembrar_me(email, senha):
+    salvar_json(ARQUIVO_LEMBRAR, {
+        "email": email,
+        "senha": senha,
+        "lembrar": True
+    })
+
+def carregar_lembrar_me():
+    dados = carregar_json(ARQUIVO_LEMBRAR)
+    if dados.get("lembrar", False):
+        return dados.get("email", ""), dados.get("senha", "")
+    return "", ""
+
+def limpar_lembrar_me():
+    if os.path.exists(ARQUIVO_LEMBRAR):
+        os.remove(ARQUIVO_LEMBRAR)
+
 # ==============================================
 # 🚀 INTERFACE PRINCIPAL
 # ==============================================
@@ -518,6 +532,9 @@ if "usuario" not in st.session_state:
     st.session_state.usuario = None
 if "admin" not in st.session_state:
     st.session_state.admin = False
+
+# Carregar dados salvos
+email_salvo, senha_salva = carregar_lembrar_me()
 
 st.title("🤖 Arbitragem AI")
 st.warning(f"⚠️ Apenas análise. Não é recomendação de investimento. Suporte: {CONFIG['email_suporte']}")
@@ -536,12 +553,23 @@ if not st.session_state.usuario:
     
     with aba1:
         st.subheader("Fazer Login")
-        email_login = st.text_input("Seu email", key="email_login")
-        senha_login = st.text_input("Sua senha", type="password", key="senha_login")
+        
+        # ✅ Campos com valores salvos
+        email_login = st.text_input("Seu email", value=email_salvo, key="email_login")
+        senha_login = st.text_input("Sua senha", value=senha_salva, type="password", key="senha_login")
+        
+        # ✅ CAIXA "LEMBRAR-ME" — ENTRE SENHA E BOTÃO!
+        lembrar_me = st.checkbox("🔒 Lembrar meu login e senha", value=bool(email_salvo and senha_salva), key="lembrar_me")
+        
         if st.button("🔑 ENTRAR", type="primary", use_container_width=True):
             ok, resp = verificar_login(email_login, senha_login)
             if ok:
                 st.session_state.usuario = resp
+                # Salvar ou limpar conforme escolha
+                if lembrar_me:
+                    salvar_lembrar_me(email_login, senha_login)
+                else:
+                    limpar_lembrar_me()
                 st.rerun()
             else:
                 st.error(resp)
@@ -601,9 +629,17 @@ else:
             "💳 Alterar Plano"
         ])
         
-        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("<div style='height:60px'></div>", unsafe_allow_html=True)
+        
+        # ✅ BOTÃO SAIR — CANTO INFERIOR ESQUERDO
         if st.button("🚪 Sair da conta", type="secondary", use_container_width=True):
             st.session_state.usuario = None
+            # Limpar dados salvos ao sair, se não estiver marcado "Lembrar-me"
+            _, dados_lembrar = carregar_json(ARQUIVO_LEMBRAR), None
+            if os.path.exists(ARQUIVO_LEMBRAR):
+                dados = carregar_json(ARQUIVO_LEMBRAR)
+                if not dados.get("lembrar", False):
+                    limpar_lembrar_me()
             st.rerun()
     
     if pagina == "📊 Painel Principal":
@@ -625,7 +661,26 @@ else:
         if not ativo and user_plano != "Gratuito":
             st.warning("🔒 Libere seu plano para acessar.")
         else:
-            st.info("🔍 Scanner em desenvolvimento...")
+            st.header("🔍 Scanner de Arbitragem")
+            st.info("Buscando diferenças de preço entre corretoras...")
+            
+            with st.spinner("Analisando mercado..."):
+                oportunidades = escanear_oportunidades()
+            
+            if oportunidades:
+                st.success(f"✅ {len(oportunidades)} oportunidade(s) encontrada(s)!")
+                st.markdown("---")
+                for op in oportunidades:
+                    st.markdown(f"""
+                    <div style='background:rgba(34,197,94,0.08);border-left:4px solid #22c55e;padding:15px;border-radius:0 10px 10px 0;margin:10px 0;'>
+                    <h4 style='margin:0;color:#22c55e;'>🪙 {op['moeda']} — Lucro estimado: {op['lucro_pct']}%</h4>
+                    <p style='margin:8px 0;'>✅ Comprar na <strong>{op['comprar_bolsa']}</strong>: ${op['comprar_preco']:.4f}<br>
+                    💰 Vender na <strong>{op['vender_bolsa']}</strong>: ${op['vender_preco']:.4f}<br>
+                    📈 Diferença: {((op['vender_preco'] - op['comprar_preco'])/op['comprar_preco']*100):.2f}%</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("⏳ Nenhuma oportunidade no momento. As diferenças estão pequenas. Atualize em instantes.")
     
     elif pagina == "⏰ Histórico":
         st.info("⏰ Histórico em desenvolvimento...")
@@ -634,10 +689,12 @@ else:
         st.info("🔔 Alertas em desenvolvimento...")
     
     elif pagina == "🧮 Calculadora de Lucro":
-        st.info("🧮 Calculadora em desenvolvimento...")
+        st.header("🧮 Calculadora de Lucro")
+        st.info("Calculadora em desenvolvimento...")
     
     elif pagina == "📈 Resumo de Mercado":
-        st.info("📈 Resumo em desenvolvimento...")
+        st.header("📈 Resumo de Mercado")
+        st.info("Resumo em desenvolvimento...")
     
     elif pagina == "⚙️ Minhas Corretoras":
         st.header("⚙️ Minhas Corretoras")
