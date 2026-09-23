@@ -24,7 +24,7 @@ CONFIG = {
 }
 
 ARQUIVO_USUARIOS = "usuarios.json"
-ARQUIVO_DADOS = "dados.json"
+ARQUIVO_SISTEMA = "sistema.json"
 
 PLANOS = {
     "Gratuito": {
@@ -68,6 +68,11 @@ def carregar_json(caminho, padrao={}):
 def salvar_json(caminho, dados):
     with open(caminho, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=2)
+
+# Carregar configuracoes salvas permanentemente
+dados_sistema = carregar_json(ARQUIVO_SISTEMA, {})
+if dados_sistema:
+    CONFIG.update(dados_sistema)
 
 # ==============================================
 # FUNCAO DE ENVIO DE E-MAIL
@@ -171,8 +176,8 @@ usuarios = carregar_json(ARQUIVO_USUARIOS, {})
 # ==============================================
 def tela_login():
     st.title("Arbitragem AI")
-    st.subheader("Análise de oportunidades entre corretoras")
-    st.warning("Apenas análise. Não é recomendação de investimento.")
+    st.subheader("Analise de oportunidades entre corretoras")
+    st.warning("Apenas analise. Nao e recomendacao de investimento.")
     st.markdown("---")
     
     aba_entrar, aba_cadastrar, aba_recuperar = st.tabs(["Entrar", "Criar Conta", "Recuperar Senha"])
@@ -220,7 +225,7 @@ def tela_login():
                 st.rerun()
     
     with aba_recuperar:
-        st.info("Funcao de recuperacao — digite seu e-mail cadastrado.")
+        st.info("Digite seu e-mail cadastrado para receber o codigo de recuperacao.")
         email_recup = st.text_input("Seu E-mail", key="recup_email")
         if st.button("ENVIAR CODIGO", type="primary"):
             if email_recup in usuarios:
@@ -541,12 +546,13 @@ def painel_administracao():
     
     with aba_admin2:
         st.subheader("Dados do Sistema")
-        novo_nome = st.text_input("Nome do recebedor do PIX", value=CONFIG["pix_nome_recebedor"])
-        nova_chave = st.text_input("Chave PIX", value=CONFIG["pix_chave"])
-        novo_email_sup = st.text_input("E-mail de suporte", value=CONFIG["email_suporte"])
-        nova_chave_cmc = st.text_input("API Key CoinMarketCap (opcional)", value=CONFIG.get("coinmarketcap_api_key", ""), type="password")
-        novo_whatsapp = st.text_input("WhatsApp do Administrador", value=CONFIG["whatsapp_admin"])
-        nova_senha_admin = st.text_input("Senha do Painel Admin", value=CONFIG["senha_admin"])
+        dados_sis = carregar_json(ARQUIVO_SISTEMA, {})
+        novo_nome = st.text_input("Nome do recebedor do PIX", value=dados_sis.get("pix_nome_recebedor", CONFIG["pix_nome_recebedor"]))
+        nova_chave = st.text_input("Chave PIX", value=dados_sis.get("pix_chave", CONFIG["pix_chave"]))
+        novo_email_sup = st.text_input("E-mail de suporte", value=dados_sis.get("email_suporte", CONFIG["email_suporte"]))
+        nova_chave_cmc = st.text_input("API Key CoinMarketCap (opcional)", value=dados_sis.get("coinmarketcap_api_key", CONFIG.get("coinmarketcap_api_key", "")), type="password")
+        novo_whatsapp = st.text_input("WhatsApp do Administrador", value=dados_sis.get("whatsapp_admin", CONFIG["whatsapp_admin"]))
+        nova_senha_admin = st.text_input("Senha do Painel Admin", value=dados_sis.get("senha_admin", CONFIG["senha_admin"]))
         
         if st.button("SALVAR DADOS DO SISTEMA", type="primary"):
             CONFIG["pix_nome_recebedor"] = novo_nome
@@ -555,30 +561,56 @@ def painel_administracao():
             CONFIG["coinmarketcap_api_key"] = nova_chave_cmc
             CONFIG["whatsapp_admin"] = novo_whatsapp
             CONFIG["senha_admin"] = nova_senha_admin
+            
+            dados_salvar = carregar_json(ARQUIVO_SISTEMA, {})
+            dados_salvar.update({
+                "pix_nome_recebedor": novo_nome,
+                "pix_chave": nova_chave,
+                "email_suporte": novo_email_sup,
+                "coinmarketcap_api_key": nova_chave_cmc,
+                "whatsapp_admin": novo_whatsapp,
+                "senha_admin": nova_senha_admin
+            })
+            salvar_json(ARQUIVO_SISTEMA, dados_salvar)
             st.success("Dados salvos! Atualize a pagina.")
     
     with aba_admin3:
         st.subheader("Configuracoes de E-mail")
         st.info("Preencha abaixo para receber notificacoes e avisar os clientes por e-mail.")
         
-        email_rem = st.text_input("E-mail Remetente", value=CONFIG.get("email_remetente", ""))
-        senha_app = st.text_input("Senha de Aplicativo", value=CONFIG.get("senha_app_email", ""), type="password",
+        dados_sis = carregar_json(ARQUIVO_SISTEMA, {})
+        email_rem = st.text_input("E-mail Remetente", value=dados_sis.get("email_remetente", CONFIG.get("email_remetente", "")))
+        senha_app = st.text_input("Senha de Aplicativo", value=dados_sis.get("senha_app_email", CONFIG.get("senha_app_email", "")), type="password",
                                   help="Para Gmail: ative verificacao em 2 etapas -> gere 'Senha de App'")
-        smtp_serv = st.text_input("Servidor SMTP", value=CONFIG.get("smtp_servidor", "smtp.gmail.com"))
-        smtp_port = st.number_input("Porta SMTP", value=CONFIG.get("smtp_porta", 587))
+        smtp_serv = st.text_input("Servidor SMTP", value=dados_sis.get("smtp_servidor", CONFIG.get("smtp_servidor", "smtp.gmail.com")))
+        smtp_port = st.number_input("Porta SMTP", value=dados_sis.get("smtp_porta", CONFIG.get("smtp_porta", 587)))
         
         if st.button("SALVAR CONFIGURACOES DE E-MAIL", type="primary"):
             CONFIG["email_remetente"] = email_rem
             CONFIG["senha_app_email"] = senha_app
             CONFIG["smtp_servidor"] = smtp_serv
             CONFIG["smtp_porta"] = int(smtp_port)
+            
+            dados_salvar = carregar_json(ARQUIVO_SISTEMA, {})
+            dados_salvar.update({
+                "email_remetente": email_rem,
+                "senha_app_email": senha_app,
+                "smtp_servidor": smtp_serv,
+                "smtp_porta": int(smtp_port)
+            })
+            salvar_json(ARQUIVO_SISTEMA, dados_salvar)
             st.success("Configuracoes de e-mail salvas!")
         
         st.markdown("---")
         st.subheader("Testar Envio")
-        email_teste = st.text_input("E-mail para teste", placeholder="seuemail@exemplo.com")
+        dados_sis = carregar_json(ARQUIVO_SISTEMA, {})
+        email_teste = st.text_input("E-mail para teste", value=dados_sis.get("email_remetente", ""), placeholder="seuemail@exemplo.com")
+        
+        email_atual = dados_sis.get("email_remetente", CONFIG.get("email_remetente", ""))
+        senha_atual = dados_sis.get("senha_app_email", CONFIG.get("senha_app_email", ""))
+        
         if st.button("ENVIAR E-MAIL DE TESTE"):
-            if not CONFIG.get("email_remetente") or not CONFIG.get("senha_app_email"):
+            if not email_atual or not senha_atual:
                 st.error("Preencha e salve as configuracoes acima primeiro!")
             else:
                 assunto = "Teste — Arbitragem AI"
