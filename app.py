@@ -4,6 +4,7 @@ import os
 import requests
 from datetime import datetime
 from urllib.parse import quote
+import base64
 
 # ==============================================
 # ⚙️ CONFIGURAÇÕES — ATUALIZE SEUS DADOS ABAIXO!
@@ -11,14 +12,18 @@ from urllib.parse import quote
 st.set_page_config(page_title="Arbitragem AI", page_icon="🤖", layout="wide")
 
 CONFIG = {
-    "pix_nome_recebedor": "Inacio Silva",
-    "pix_chave": "11571293744",
+    "pix_nome_recebedor": "Seu Nome Completo",
+    "pix_chave": "sua.chave.pix@exemplo.com",
     "whatsapp_admin": "5521997524939",
-    "email_suporte": "suportearbitrageai@gmail.com"
+    "email_suporte": "seuemail@exemplo.com",
+    "coinmarketcap_api_key": ""
 }
 
-SENHA_ADMIN = "1911Gilson@"
+SENHA_ADMIN = "admin123"
 ARQUIVO_USUARIOS = "usuarios.json"
+PASTA_COMPROVANTES = "comprovantes"
+
+os.makedirs(PASTA_COMPROVANTES, exist_ok=True)
 
 PLANOS = {
     "Gratuito": {
@@ -53,7 +58,7 @@ CORRETORAS = {
 }
 
 # ==============================================
-# 📂 BANCO DE DADOS
+# 📂 BANCO DE DADOS E ARQUIVOS
 # ==============================================
 def carregar_json(arquivo):
     if not os.path.exists(arquivo):
@@ -69,6 +74,15 @@ def salvar_json(arquivo, dados):
         json.dump(dados, f, ensure_ascii=False, indent=2)
     return True
 
+def salvar_comprovante(arquivo_upload, id_pagamento):
+    """Salva a imagem e retorna o caminho"""
+    extensao = arquivo_upload.name.split(".")[-1].lower()
+    nome_arquivo = f"{id_pagamento}.{extensao}"
+    caminho = os.path.join(PASTA_COMPROVANTES, nome_arquivo)
+    with open(caminho, "wb") as f:
+        f.write(arquivo_upload.getbuffer())
+    return caminho
+
 def gerar_id_pagamento():
     return f"PAG{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
@@ -83,29 +97,33 @@ def gerar_codigo_pix(valor, descricao, email):
 def gerar_link_qr_pix(codigo_pix):
     return f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={quote(codigo_pix)}"
 
-def registrar_pagamento_pendente(email, plano, valor, id_pag, nome_arquivo=""):
+def registrar_pagamento_pendente(email, plano, valor, id_pag, caminho_imagem=""):
     usuarios = carregar_json(ARQUIVO_USUARIOS)
     if email not in usuarios:
         return False
     usuarios[email]["plano_escolhido"] = plano
     usuarios[email]["valor_pago"] = valor
     usuarios[email]["id_pagamento"] = id_pag
-    usuarios[email]["comprovante"] = nome_arquivo
+    usuarios[email]["caminho_comprovante"] = caminho_imagem
     usuarios[email]["status_pagamento"] = "pendente"
     usuarios[email]["data_pagamento"] = datetime.now().strftime("%d/%m/%Y %H:%M")
     salvar_json(ARQUIVO_USUARIOS, usuarios)
     return True
 
-def notificar_admin(email, plano, valor, id_pag, arquivo=""):
+def notificar_admin(email, plano, valor, id_pag, caminho_imagem=""):
+    """Monta mensagem com link para ver a imagem"""
     texto = f"""🔔 NOVO PAGAMENTO PENDENTE!
 
 👤 Cliente: {email}
 💳 Plano: {plano}
 💰 Valor: R$ {valor:.2f}
 🆔 ID: {id_pag}
-📎 Comprovante: {arquivo or "Aguardando envio"}
+📅 Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
 
-Acesse o Painel de Administração para aprovar! ✅"""
+📎 Comprovante: {'✅ Imagem salva no sistema' if caminho_imagem else '⚠️ Sem imagem'}
+
+Acesse o PAINEL DE ADMINISTRAÇÃO para verificar a foto e aprovar! ✅"""
+    
     link_whats = f"https://wa.me/{CONFIG['whatsapp_admin']}?text={quote(texto)}"
     
     if "notificacoes" not in st.session_state:
@@ -116,6 +134,7 @@ Acesse o Painel de Administração para aprovar! ✅"""
         "plano": plano,
         "valor": valor,
         "id": id_pag,
+        "caminho_imagem": caminho_imagem,
         "hora": datetime.now().strftime("%d/%m %H:%M"),
         "lida": False
     })
@@ -190,49 +209,47 @@ def exibir_escolha_planos(email_cliente):
             
             st.markdown("---")
             st.subheader("📤 Envie o comprovante para liberação")
-            comprovante = st.file_uploader("Anexar comprovante de pagamento", type=["jpg", "jpeg", "png"])
+            comprovante = st.file_uploader("📎 Anexar comprovante de pagamento", type=["jpg", "jpeg", "png"])
             
             if comprovante:
                 st.success(f"✅ Comprovante carregado: {comprovante.name}")
-                st.image(comprovante, width=300)
+                st.image(comprovante, width=350, caption="Pré-visualização do comprovante")
                 
-                if st.button("✅ JÁ PAGUEI — SOLICITAR LIBERAÇÃO", type="primary", use_container_width=True):
-                    registrar_pagamento_pendente(email_cliente, plano, valor, id_pag, comprovante.name)
-                    link_whats = notificar_admin(email_cliente, plano, valor, id_pag, comprovante.name)
+                if st.button("✅ JÁ PAGUEI — ENVIAR COMPROVANTE", type="primary", use_container_width=True):
+                    caminho_imagem = salvar_comprovante(comprovante, id_pag)
+                    registrar_pagamento_pendente(email_cliente, plano, valor, id_pag, caminho_imagem)
+                    link_whats = notificar_admin(email_cliente, plano, valor, id_pag, caminho_imagem)
                     
-                    st.success("🎉 Solicitação enviada! Aguardando aprovação!")
+                    st.success("🎉 Comprovante enviado! Aguardando aprovação!")
                     st.balloons()
                     
                     st.markdown(f"""
                     <div style='text-align:center;padding:20px;background:rgba(37,211,102,0.1);border-radius:12px;margin:20px 0;'>
                     <h4 style='color:#25d366;margin:0;'>📱 Avisar no WhatsApp</h4>
-                    <a href="{link_whats}" target="_blank" style="display:inline-block;background:#25d366;color:white;padding:12px 24px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:16px;margin:10px 0;">💬 Enviar mensagem</a>
+                    <a href="{link_whats}" target="_blank" style="display:inline-block;background:#25d366;color:white;padding:12px 24px;border-radius:50px;text-decoration:none;font-weight:bold;font-size:16px;margin:10px 0;">💬 Clique para enviar mensagem</a>
                     </div>
                     """, unsafe_allow_html=True)
                     
                     st.info(f"📧 Suporte: {CONFIG['email_suporte']}")
-                    st.info("⏳ Assim que aprovado, seu plano será liberado!")
+                    st.info("⏳ Assim que aprovado, seu plano será liberado automaticamente!")
                     del st.session_state["plano_escolhido"]
                     st.stop()
 
 # ==============================================
-# 🔍 PREÇOS — CoinMarketCap (API CORRIGIDA) + CoinGecko + Binance
+# 🔍 PREÇOS — CoinMarketCap + CoinGecko + Binance
 # ==============================================
 @st.cache_data(ttl=60)
 def buscar_precos_rodape():
     moedas = ["BTC", "ETH", "SOL", "XRP", "ADA"]
     precos = {}
     
-    # Fonte 1: CoinMarketCap — usando a estrutura correta
     if CONFIG["coinmarketcap_api_key"]:
         try:
             headers = {"X-CMC_PRO_API_KEY": CONFIG["coinmarketcap_api_key"]}
             params = {"symbol": ",".join(moedas), "convert": "USD"}
             resp = requests.get(
                 "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
-                headers=headers,
-                params=params,
-                timeout=10
+                headers=headers, params=params, timeout=10
             )
             dados = resp.json()
             if "data" in dados and isinstance(dados["data"], dict):
@@ -241,10 +258,9 @@ def buscar_precos_rodape():
                         precos[sigla] = dados["data"][sigla]["quote"]["USD"]["price"]
                 if len(precos) == 5:
                     return precos, "CoinMarketCap"
-        except Exception as e:
+        except:
             pass
     
-    # Fonte 2: CoinGecko — reserva confiável
     try:
         url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,cardano&vs_currencies=usd"
         resp = requests.get(url, timeout=10)
@@ -259,7 +275,6 @@ def buscar_precos_rodape():
     except:
         pass
     
-    # Fonte 3: Binance — última reserva
     try:
         for sigla in moedas:
             resp = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sigla}USDT", timeout=8)
@@ -325,13 +340,6 @@ def escanear_oportunidades(lista_moedas=["BTC", "ETH", "SOL", "XRP", "ADA", "DOG
                 })
     return sorted(oportunidades, key=lambda x: x["lucro_pct"], reverse=True)
 
-def salvar_no_historico(oportunidade):
-    if "historico" not in st.session_state:
-        st.session_state["historico"] = []
-    oportunidade["hora"] = datetime.now().strftime("%d/%m %H:%M")
-    st.session_state["historico"].insert(0, oportunidade)
-    st.session_state["historico"] = st.session_state["historico"][:50]
-
 # ==============================================
 # 📡 RODAPÉ COM PREÇOS
 # ==============================================
@@ -351,7 +359,7 @@ def exibir_rodape_precos():
     st.markdown(f"<div style='text-align:center;font-size:11px;color:#64748b;padding:4px 0;'>Dados: {fonte} • Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} • Arbitragem AI © 2026</div>", unsafe_allow_html=True)
 
 # ==============================================
-# 🛠️ PAINEL DE ADMINISTRAÇÃO
+# 🛠️ PAINEL DE ADMINISTRAÇÃO — COM VERIFICAÇÃO DE FOTO
 # ==============================================
 def painel_administracao():
     st.header("🛠️ PAINEL DE ADMINISTRAÇÃO")
@@ -371,28 +379,36 @@ def painel_administracao():
     }
     
     if pendentes:
-        st.subheader(f"⏳ {len(pendentes)} Aguardando Aprovação")
+        st.subheader(f"⏳ {len(pendentes)} Aguardando VERIFICAÇÃO")
         st.markdown("---")
         for email, dados in pendentes.items():
             with st.expander(f"📋 {email} — {dados.get('plano_escolhido', '—')}"):
                 st.write(f"💰 Valor: R$ {dados.get('valor_pago', 0):.2f}")
-                st.write(f"🆔 ID: {dados.get('id_pagamento', '—')}")
-                st.write(f"📎 Comprovante: {dados.get('comprovante', '—')}")
+                st.write(f"🆔 ID Pagamento: {dados.get('id_pagamento', '—')}")
                 st.write(f"📅 Data: {dados.get('data_pagamento', '—')}")
+                
+                caminho_img = dados.get("caminho_comprovante", "")
+                if caminho_img and os.path.exists(caminho_img):
+                    st.markdown("### 📎 COMPROVANTE ENVIADO:")
+                    st.image(caminho_img, caption=f"Comprovante — {email}", width=400)
+                    st.success("✅ Imagem carregada — Verifique a originalidade!")
+                else:
+                    st.warning("⚠️ Nenhuma imagem anexada!")
+                
                 col_aprov, col_rej = st.columns(2)
                 with col_aprov:
-                    if st.button(f"✅ APROVAR E LIBERAR", key=f"apr_{email}", type="primary"):
+                    if st.button(f"✅ APROVAR E LIBERAR PLANO", key=f"apr_{email}", type="primary"):
                         usuarios[email]["status_pagamento"] = "aprovado"
                         usuarios[email]["plano_ativo"] = True
                         salvar_json(ARQUIVO_USUARIOS, usuarios)
-                        st.success(f"✅ {email} — PLANO LIBERADO!")
+                        st.success(f"✅ {email} — PLANO LIBERADO COM SUCESSO!")
                         st.balloons()
                         st.rerun()
                 with col_rej:
-                    if st.button(f"❌ REJEITAR", key=f"rej_{email}"):
+                    if st.button(f"❌ REJEITAR PAGAMENTO", key=f"rej_{email}"):
                         usuarios[email]["status_pagamento"] = "rejeitado"
                         salvar_json(ARQUIVO_USUARIOS, usuarios)
-                        st.warning(f"❌ {email} — Rejeitado!")
+                        st.warning(f"❌ {email} — Pagamento REJEITADO!")
                         st.rerun()
     else:
         st.info("✅ Nenhum pagamento pendente no momento.")
@@ -426,12 +442,16 @@ def painel_administracao():
                     st.write(f"📅 Cadastro: {dados.get('data_cadastro', '—')}")
                     st.write(f"🔑 Status: {status}")
                     st.write(f"⚡ Ativo: {'SIM' if dados.get('plano_ativo', False) else 'NÃO'}")
+                    if dados.get("caminho_comprovante") and os.path.exists(dados.get("caminho_comprovante")):
+                        st.image(dados.get("caminho_comprovante"), width=200, caption="Comprovante")
                 with col3:
                     if st.button("🗑️ EXCLUIR", key=f"del_{email}"):
                         if f"conf_del_{email}" not in st.session_state:
                             st.session_state[f"conf_del_{email}"] = True
                             st.warning(f"⚠️ Clique NOVAMENTE para confirmar exclusão de {email}")
                         else:
+                            if dados.get("caminho_comprovante") and os.path.exists(dados.get("caminho_comprovante")):
+                                os.remove(dados.get("caminho_comprovante"))
                             del usuarios[email]
                             salvar_json(ARQUIVO_USUARIOS, usuarios)
                             st.success(f"🗑️ {email} — EXCLUÍDO!")
@@ -451,7 +471,7 @@ def painel_administracao():
         CONFIG["pix_chave"] = nova_chave
         CONFIG["email_suporte"] = novo_email
         CONFIG["coinmarketcap_api_key"] = nova_chave_cmc
-        st.success("✅ Configurações salvas! Atualize a página para tudo funcionar!")
+        st.success("✅ Configurações salvas! Atualize a página!")
 
 # ==============================================
 # 🔐 FUNÇÕES DE LOGIN
