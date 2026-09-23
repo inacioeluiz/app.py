@@ -80,7 +80,7 @@ if dados_sistema:
 # FUNCOES DE EXIBICAO DE LOGO
 # ==============================================
 def exibir_logo_principal(largura=250):
-    """Exibe o logo grande na tela de login e principal"""
+    """Exibe o logo grande na tela de login"""
     caminho = CONFIG.get("logo_principal", "logo_principal.png")
     if os.path.exists(caminho):
         st.image(caminho, width=largura)
@@ -88,7 +88,7 @@ def exibir_logo_principal(largura=250):
         st.markdown("<h1 style='text-align: center; color: #22c55e;'>ARBITRAGEM AI</h1>", unsafe_allow_html=True)
 
 def exibir_logo_sidebar(largura=100):
-    """Exibe o logo pequeno no canto superior esquerdo da barra lateral"""
+    """Exibe o logo pequeno na barra lateral"""
     caminho = CONFIG.get("logo_pequeno", "logo_pequeno.png")
     if os.path.exists(caminho):
         st.sidebar.image(caminho, width=largura)
@@ -394,9 +394,13 @@ def painel_principal():
         st.info("Use o Scanner para encontrar oportunidades de arbitragem entre corretoras.")
         st.markdown("---")
         st.subheader("Precos de Mercado")
-        st.metric("BTC", "$ 63.420,50", "+0,32%")
-        st.metric("ETH", "$ 3.218,90", "-0,15%")
-        st.metric("SOL", "$ 142,85", "+1,05%")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("BTC", "$ 63.420,50", "+0,32%")
+        with col2:
+            st.metric("ETH", "$ 3.218,90", "-0,15%")
+        with col3:
+            st.metric("SOL", "$ 142,85", "+1,05%")
     
     elif pagina == "Scanner de Arbitragem":
         st.header("Scanner de Arbitragem")
