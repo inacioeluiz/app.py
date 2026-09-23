@@ -402,7 +402,7 @@ Via Arbitragem AI 🤖"""
             """, unsafe_allow_html=True)
 
 # ==============================================
-# 🛠️ PAINEL DE ADMINISTRAÇÃO — ATUALIZADO!
+# 🛠️ PAINEL DE ADMINISTRAÇÃO
 # ==============================================
 def painel_administracao():
     st.header("🛠️ PAINEL DE ADMINISTRAÇÃO")
@@ -410,7 +410,6 @@ def painel_administracao():
     
     usuarios = carregar_json(ARQUIVO_USUARIOS)
     
-    # PENDENTES
     pendentes = {
         email: dados 
         for email, dados in usuarios.items()
@@ -444,7 +443,6 @@ def painel_administracao():
                         st.warning(f"❌ {email} — Rejeitado!")
                         st.rerun()
     
-    # TODOS OS CLIENTES — PLANO AO LADO + EXCLUIR
     st.markdown("---")
     st.subheader("📊 Todos os Clientes")
     
@@ -495,6 +493,40 @@ def painel_administracao():
                         st.rerun()
 
 # ==============================================
+# 📡 RODAPÉ — PREÇOS EM TEMPO REAL
+# ==============================================
+def exibir_rodape_precos():
+    precos = {}
+    moedas_rodape = [
+        ("BTC", "Bitcoin"),
+        ("ETH", "Ethereum"),
+        ("SOL", "Solana"),
+        ("XRP", "Ripple"),
+        ("ADA", "Cardano")
+    ]
+    
+    for sigla, _ in moedas_rodape:
+        preco = buscar_preco_bolsa(sigla, "Binance")
+        precos[sigla] = preco
+    
+    st.markdown("---")
+    cols = st.columns(len(moedas_rodape))
+    for idx, (sigla, nome) in enumerate(moedas_rodape):
+        with cols[idx]:
+            p = precos.get(sigla)
+            if p:
+                st.metric(f"💰 {sigla}", f"${p:,.2f}")
+            else:
+                st.metric(f"💰 {sigla}", "—")
+    
+    st.markdown(f"""
+    <div style='text-align:center;color:#64748b;font-size:12px;padding:10px 0;'>
+    📊 Dados em tempo real via Binance • Atualizado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} • 
+    <strong>Arbitragem AI</strong> © 2026
+    </div>
+    """, unsafe_allow_html=True)
+
+# ==============================================
 # 🚀 INTERFACE PRINCIPAL
 # ==============================================
 if "usuario" not in st.session_state:
@@ -512,6 +544,7 @@ if st.session_state.admin:
     if st.button("🚪 Sair do Admin", type="secondary"):
         st.session_state.admin = False
         st.rerun()
+    exibir_rodape_precos()
     st.stop()
 
 # Tela de Login
@@ -567,6 +600,8 @@ if not st.session_state.usuario:
                 st.rerun()
             else:
                 st.error("❌ Senha incorreta!")
+    
+    exibir_rodape_precos()
 
 # Área do Usuário
 else:
@@ -672,3 +707,5 @@ else:
         """, unsafe_allow_html=True)
         if not ativo and user_plano != "Gratuito":
             st.info("Aguardando aprovação do comprovante enviado.")
+    
+    exibir_rodape_precos()
