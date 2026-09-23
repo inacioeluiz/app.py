@@ -502,7 +502,7 @@ def enviar_email(destinatario, assunto, mensagem_html):
 # 🛠️ PAINEL DE ADMINISTRAÇÃO
 # ==============================================
     elif pagina == "🛠️ Painel de Administração":
-        if st.session_state.get("admin_logado") != True:
+    if st.session_state.get("admin_logado") != True:
             senha_admin = st.text_input("🔐 Senha de Administrador", type="password")
             if st.button("🔑 ENTRAR", type="primary"):
                 if senha_admin == "admin123":
