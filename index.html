@@ -19,6 +19,7 @@ CONFIG = {
 
 SENHA_ADMIN = "1911Gilson@"
 ARQUIVO_USUARIOS = "usuarios.json"
+ARQUIVO_LEMBRAR = "lembrar_me.json"
 PASTA_COMPROVANTES = "comprovantes"
 
 os.makedirs(PASTA_COMPROVANTES, exist_ok=True)
@@ -471,7 +472,7 @@ def painel_administracao():
         st.success("✅ Salvo! Atualize a página!")
 
 # ==============================================
-# 🔐 LOGIN
+# 🔐 LOGIN COM "LEMBRAR-ME"
 # ==============================================
 def verificar_login(email, senha):
     usuarios = carregar_json(ARQUIVO_USUARIOS)
@@ -507,6 +508,23 @@ def carregar_dados_usuario(email, plano_padrao="Gratuito"):
         "config": {"lucro_min": 0.3, "intervalo": 60}
     })
 
+def salvar_lembrar_me(email, senha):
+    salvar_json(ARQUIVO_LEMBRAR, {
+        "email": email,
+        "senha": senha,
+        "lembrar": True
+    })
+
+def carregar_lembrar_me():
+    dados = carregar_json(ARQUIVO_LEMBRAR)
+    if dados.get("lembrar", False):
+        return dados.get("email", ""), dados.get("senha", "")
+    return "", ""
+
+def limpar_lembrar_me():
+    if os.path.exists(ARQUIVO_LEMBRAR):
+        os.remove(ARQUIVO_LEMBRAR)
+
 # ==============================================
 # 🚀 INTERFACE PRINCIPAL
 # ==============================================
@@ -514,6 +532,9 @@ if "usuario" not in st.session_state:
     st.session_state.usuario = None
 if "admin" not in st.session_state:
     st.session_state.admin = False
+
+# Carregar dados salvos
+email_salvo, senha_salva = carregar_lembrar_me()
 
 st.title("🤖 Arbitragem AI")
 st.warning(f"⚠️ Apenas análise. Não é recomendação de investimento. Suporte: {CONFIG['email_suporte']}")
@@ -532,12 +553,23 @@ if not st.session_state.usuario:
     
     with aba1:
         st.subheader("Fazer Login")
-        email_login = st.text_input("Seu email", key="email_login")
-        senha_login = st.text_input("Sua senha", type="password", key="senha_login")
+        
+        # ✅ Campos com valores salvos
+        email_login = st.text_input("Seu email", value=email_salvo, key="email_login")
+        senha_login = st.text_input("Sua senha", value=senha_salva, type="password", key="senha_login")
+        
+        # ✅ CAIXA "LEMBRAR-ME" — ENTRE SENHA E BOTÃO!
+        lembrar_me = st.checkbox("🔒 Lembrar meu login e senha", value=bool(email_salvo and senha_salva), key="lembrar_me")
+        
         if st.button("🔑 ENTRAR", type="primary", use_container_width=True):
             ok, resp = verificar_login(email_login, senha_login)
             if ok:
                 st.session_state.usuario = resp
+                # Salvar ou limpar conforme escolha
+                if lembrar_me:
+                    salvar_lembrar_me(email_login, senha_login)
+                else:
+                    limpar_lembrar_me()
                 st.rerun()
             else:
                 st.error(resp)
@@ -602,6 +634,12 @@ else:
         # ✅ BOTÃO SAIR — CANTO INFERIOR ESQUERDO
         if st.button("🚪 Sair da conta", type="secondary", use_container_width=True):
             st.session_state.usuario = None
+            # Limpar dados salvos ao sair, se não estiver marcado "Lembrar-me"
+            _, dados_lembrar = carregar_json(ARQUIVO_LEMBRAR), None
+            if os.path.exists(ARQUIVO_LEMBRAR):
+                dados = carregar_json(ARQUIVO_LEMBRAR)
+                if not dados.get("lembrar", False):
+                    limpar_lembrar_me()
             st.rerun()
     
     if pagina == "📊 Painel Principal":
