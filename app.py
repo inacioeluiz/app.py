@@ -212,7 +212,7 @@ def buscar_preco_bolsa(simbolo, corretora):
     if corretora not in urls:
         return None
     try:
-        resp = requests.get(urls[corretora], timeout=10)
+        resp = requests.get(urls[corretora], timeout=15)
         dados = resp.json()
         if corretora == "Binance" and "price" in dados:
             return float(dados["price"])
@@ -224,7 +224,7 @@ def buscar_preco_bolsa(simbolo, corretora):
             return float(dados[0]["last"])
         elif corretora == "OKX" and dados.get("code") == "0" and "data" in dados:
             return float(dados["data"][0]["last"])
-    except:
+    except Exception as e:
         pass
     return None
 
@@ -493,38 +493,28 @@ def painel_administracao():
                         st.rerun()
 
 # ==============================================
-# 📡 RODAPÉ — PREÇOS EM TEMPO REAL
+# 📡 RODAPÉ — PREÇOS COMPACTO E FUNCIONAL
 # ==============================================
 def exibir_rodape_precos():
+    moedas_rodape = ["BTC", "ETH", "SOL", "XRP", "ADA"]
+    
     precos = {}
-    moedas_rodape = [
-        ("BTC", "Bitcoin"),
-        ("ETH", "Ethereum"),
-        ("SOL", "Solana"),
-        ("XRP", "Ripple"),
-        ("ADA", "Cardano")
-    ]
+    for sigla in moedas_rodape:
+        p = buscar_preco_bolsa(sigla, "Binance")
+        precos[sigla] = p
     
-    for sigla, _ in moedas_rodape:
-        preco = buscar_preco_bolsa(sigla, "Binance")
-        precos[sigla] = preco
+    st.markdown("<hr style='margin:0.3rem 0;opacity:0.2'>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    cols = st.columns(len(moedas_rodape))
-    for idx, (sigla, nome) in enumerate(moedas_rodape):
+    cols = st.columns(5)
+    for idx, sigla in enumerate(moedas_rodape):
         with cols[idx]:
             p = precos.get(sigla)
             if p:
-                st.metric(f"💰 {sigla}", f"${p:,.2f}")
+                st.markdown(f"<div style='text-align:center;line-height:1.1;'><span style='font-size:13px;color:#94a3b8;'>{sigla}</span><br><span style='font-size:15px;font-weight:bold;color:#fff;'>${p:,.2f}</span></div>", unsafe_allow_html=True)
             else:
-                st.metric(f"💰 {sigla}", "—")
+                st.markdown(f"<div style='text-align:center;line-height:1.1;'><span style='font-size:13px;color:#94a3b8;'>{sigla}</span><br><span style='font-size:13px;color:#ef4444;'>Indisponível</span></div>", unsafe_allow_html=True)
     
-    st.markdown(f"""
-    <div style='text-align:center;color:#64748b;font-size:12px;padding:10px 0;'>
-    📊 Dados em tempo real via Binance • Atualizado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} • 
-    <strong>Arbitragem AI</strong> © 2026
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center;font-size:11px;color:#64748b;padding:4px 0;'>Dados: Binance • Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} • Arbitragem AI © 2026</div>", unsafe_allow_html=True)
 
 # ==============================================
 # 🚀 INTERFACE PRINCIPAL
