@@ -12,10 +12,10 @@ from urllib.parse import quote
 st.set_page_config(page_title="Arbitragem AI", page_icon="🤖", layout="wide")
 
 CONFIG = {
-    "pix_nome_recebedor": "Seu Nome Completo",
-    "pix_chave": "sua.chave.pix@exemplo.com",
+    "pix_nome_recebedor": "Inacio Silva",
+    "pix_chave": "11571293744",
     "whatsapp_admin": "5521997524939",
-    "email_suporte": "seuemail@exemplo.com"
+    "email_suporte": "suportearbitrageai@gmail.com"
 }
 
 ARQUIVO_USUARIOS = "usuarios.json"
