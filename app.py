@@ -533,7 +533,7 @@ def enviar_email(destinatario, assunto, mensagem_html):
 # ==============================================
 # 🛠️ PAINEL DE ADMINISTRAÇÃO
 # ==============================================
-    elif pagina == "Painel de Administracao":
+     elif pagina == "Painel de Administracao":
         if st.session_state.get("admin_logado") != True:
             senha_admin = st.text_input("🔐 Senha de Administrador", type="password")
             if st.button("🔑 ENTRAR", type="primary"):
