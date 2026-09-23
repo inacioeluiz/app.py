@@ -467,541 +467,226 @@ def exibir_rodape_precos():
     st.markdown(f"<div style='text-align:center;font-size:11px;color:#64748b;padding:4px 0;'>Dados: {fonte} • Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} • Arbitragem AI © 2026</div>", unsafe_allow_html=True)
 
 # ==============================================
+# FUNÇÃO DE ENVIO DE E-MAIL
+# ==============================================
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def enviar_email(destinatario, assunto, mensagem_html):
+    try:
+        remetente = CONFIG.get("email_remetente", "")
+        senha = CONFIG.get("senha_app_email", "")
+        servidor_smtp = CONFIG.get("smtp_servidor", "smtp.gmail.com")
+        porta = CONFIG.get("smtp_porta", 587)
+        
+        if not remetente or not senha:
+            return False, "Configurações de e-mail incompletas"
+        
+        msg = MIMEMultipart()
+        msg["From"] = remetente
+        msg["To"] = destinatario
+        msg["Subject"] = assunto
+        msg.attach(MIMEText(mensagem_html, "html"))
+        
+        with smtplib.SMTP(servidor_smtp, porta) as servidor:
+            servidor.starttls()
+            servidor.login(remetente, senha)
+            servidor.send_message(msg)
+        
+        return True, "E-mail enviado!"
+    except Exception as e:
+        return False, f"Erro: {str(e)}"
+
+# ==============================================
 # 🛠️ PAINEL DE ADMINISTRAÇÃO
 # ==============================================
-def painel_administracao():
-    st.header("🛠️ PAINEL DE ADMINISTRAÇÃO")
-    
-    if "notificacoes" in st.session_state and st.session_state["notificacoes"]:
-        st.subheader("🔔 Notificações Recentes")
-        for notif in st.session_state["notificacoes"][:5]:
-            icone = "🟢" if notif["lida"] else "🔴"
-            st.info(f"{icone} {notif['hora']} — {notif['email']} | {notif['plano']} | R$ {notif['valor']:.2f}")
-        st.markdown("---")
-    
-    usuarios = carregar_json(ARQUIVO_USUARIOS)
-    pendentes = {
-        email: dados 
-        for email, dados in usuarios.items()
-        if dados.get("status_pagamento") == "pendente" and not dados.get("plano_ativo", False)
-    }
-    
-    if pendentes:
-        st.subheader(f"⏳ {len(pendentes)} Aguardando VERIFICAÇÃO")
-        st.markdown("---")
-        for email, dados in pendentes.items():
-            with st.expander(f"📋 {email} — {dados.get('plano_escolhido', '—')}"):
-                st.write(f"💰 Valor: R$ {dados.get('valor_pago', 0):.2f}")
-                st.write(f"🆔 ID Pagamento: {dados.get('id_pagamento', '—')}")
-                st.write(f"📅 Data: {dados.get('data_pagamento', '—')}")
-                
-                caminho_img = dados.get("caminho_comprovante", "")
-                if caminho_img and os.path.exists(caminho_img):
-                    st.markdown("### 📎 COMPROVANTE ENVIADO:")
-                    st.image(caminho_img, caption=f"Comprovante — {email}", width=400)
-                    st.success("✅ Imagem carregada — Verifique a originalidade!")
-                else:
-                    st.warning("⚠️ Nenhuma imagem anexada!")
-                
-                col_aprov, col_rej = st.columns(2)
-                with col_aprov:
-                    if st.button(f"✅ APROVAR E LIBERAR", key=f"apr_{email}", type="primary"):
-                        usuarios[email]["status_pagamento"] = "aprovado"
-                        usuarios[email]["plano_ativo"] = True
-                        salvar_json(ARQUIVO_USUARIOS, usuarios)
-                        st.success(f"✅ {email} — PLANO LIBERADO!")
-                        st.balloons()
-                        st.rerun()
-                with col_rej:
-                    if st.button(f"❌ REJEITAR", key=f"rej_{email}"):
-                        usuarios[email]["status_pagamento"] = "rejeitado"
-                        salvar_json(ARQUIVO_USUARIOS, usuarios)
-                        st.warning(f"❌ {email} — REJEITADO!")
-                        st.rerun()
-    else:
-        st.info("✅ Nenhum pagamento pendente.")
-    
-    st.markdown("---")
-    st.subheader("📊 Todos os Clientes")
-    if not usuarios:
-        st.info("Ainda não há clientes.")
-    else:
-        for email, dados in usuarios.items():
-            icone = {"aprovado":"✅", "pendente":"⏳", "rejeitado":"❌"}.get(dados.get("status_pagamento","aprovado"), "❓")
-            plano_atual = dados.get("plano", "Gratuito")
-            status = dados.get("status_pagamento", "aprovado")
-            with st.expander(f"{icone} {email} | Plano: {plano_atual} | {status.upper()}"):
-                col1, col2, col3 = st.columns([2, 2, 1])
-                with col1:
-                    novo_plano = st.selectbox(
-                        "Alterar Plano", list(PLANOS.keys()),
-                        index=list(PLANOS.keys()).index(plano_atual),
-                        key=f"plano_{email}"
-                    )
-                    if st.button(f"🔄 Aplicar", key=f"apl_{email}"):
-                        usuarios[email]["plano"] = novo_plano
-                        if novo_plano == "Gratuito":
-                            usuarios[email]["status_pagamento"] = "aprovado"
-                            usuarios[email]["plano_ativo"] = True
-                        salvar_json(ARQUIVO_USUARIOS, usuarios)
-                        st.success(f"✅ Plano alterado para {novo_plano}!")
-                        st.rerun()
-                with col2:
-                    st.write(f"📅 Cadastro: {dados.get('data_cadastro', '—')}")
-                    st.write(f"🔑 Status: {status}")
-                    st.write(f"⚡ Ativo: {'SIM' if dados.get('plano_ativo', False) else 'NÃO'}")
-                    if dados.get("caminho_comprovante") and os.path.exists(dados.get("caminho_comprovante")):
-                        st.image(dados.get("caminho_comprovante"), width=200, caption="Comprovante")
-                with col3:
-                    if st.button("🗑️ EXCLUIR", key=f"del_{email}"):
-                        if f"conf_del_{email}" not in st.session_state:
-                            st.session_state[f"conf_del_{email}"] = True
-                            st.warning(f"⚠️ Clique NOVAMENTE para excluir {email}")
-                        else:
-                            if dados.get("caminho_comprovante") and os.path.exists(dados.get("caminho_comprovante")):
-                                os.remove(dados.get("caminho_comprovante"))
-                            del usuarios[email]
-                            salvar_json(ARQUIVO_USUARIOS, usuarios)
-                            st.success(f"🗑️ {email} — EXCLUÍDO!")
-                            if f"conf_del_{email}" in st.session_state:
-                                del st.session_state[f"conf_del_{email}"]
-                            st.rerun()
-    
-    st.markdown("---")
-    st.subheader("⚙️ Configurações do Sistema")
-    novo_nome = st.text_input("Nome do recebedor do PIX", value=CONFIG["pix_nome_recebedor"])
-    nova_chave = st.text_input("Chave PIX", value=CONFIG["pix_chave"])
-    novo_email = st.text_input("E-mail de suporte", value=CONFIG["email_suporte"])
-    nova_chave_cmc = st.text_input("API Key CoinMarketCap (opcional)", value=CONFIG.get("coinmarketcap_api_key", ""), type="password")
-    
-    if st.button("💾 SALVAR CONFIGURAÇÕES", type="primary"):
-        CONFIG["pix_nome_recebedor"] = novo_nome
-        CONFIG["pix_chave"] = nova_chave
-        CONFIG["email_suporte"] = novo_email
-        CONFIG["coinmarketcap_api_key"] = nova_chave_cmc
-        st.success("✅ Salvo! Atualize a página!")
-
-# ==============================================
-# 🔐 AUTENTICAÇÃO
-# ==============================================
-def verificar_login(email, senha):
-    usuarios = carregar_json(ARQUIVO_USUARIOS)
-    if email not in usuarios:
-        return False, "Email não encontrado!"
-    if usuarios[email]["senha"] != senha:
-        return False, "Senha incorreta!"
-    return True, usuarios[email]
-
-def criar_conta(email, senha, plano):
-    usuarios = carregar_json(ARQUIVO_USUARIOS)
-    if email in usuarios:
-        return False, "Email já cadastrado!"
-    usuarios[email] = {
-        "senha": senha,
-        "plano": plano,
-        "status_pagamento": "aprovado" if plano == "Gratuito" else "pendente",
-        "plano_ativo": True if plano == "Gratuito" else False,
-        "data_cadastro": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "chaves": {},
-        "config": {"lucro_min": 0.3, "intervalo": 60},
-        "alertas": []
-    }
-    salvar_json(ARQUIVO_USUARIOS, usuarios)
-    return True, "Conta criada com sucesso!"
-
-def carregar_dados_usuario(email, plano_padrao="Gratuito"):
-    usuarios = carregar_json(ARQUIVO_USUARIOS)
-    return usuarios.get(email, {
-        "plano": plano_padrao,
-        "status_pagamento": "aprovado",
-        "plano_ativo": True,
-        "chaves": {},
-        "config": {"lucro_min": 0.3, "intervalo": 60},
-        "alertas": []
-    })
-
-def salvar_lembrar_me(email, senha):
-    salvar_json(ARQUIVO_LEMBRAR, {"email": email, "senha": senha, "lembrar": True})
-
-def carregar_lembrar_me():
-    dados = carregar_json(ARQUIVO_LEMBRAR)
-    if dados.get("lembrar", False):
-        return dados.get("email", ""), dados.get("senha", "")
-    return "", ""
-
-def limpar_lembrar_me():
-    if os.path.exists(ARQUIVO_LEMBRAR):
-        os.remove(ARQUIVO_LEMBRAR)
-
-# ==============================================
-# 🚀 INTERFACE PRINCIPAL
-# ==============================================
-if "usuario" not in st.session_state:
-    st.session_state.usuario = None
-if "admin" not in st.session_state:
-    st.session_state.admin = False
-
-email_salvo, senha_salva = carregar_lembrar_me()
-tem_dados_salvos = bool(email_salvo and senha_salva)
-
-st.title("🤖 Arbitragem AI")
-st.warning(f"⚠️ Apenas análise. Não é recomendação de investimento. Suporte: {CONFIG['email_suporte']}")
-st.markdown("---")
-
-if st.session_state.admin:
-    painel_administracao()
-    if st.button("🚪 Sair do Admin", type="secondary"):
-        st.session_state.admin = False
-        st.rerun()
-    exibir_rodape_precos()
-    st.stop()
-
-if not st.session_state.usuario:
-    aba1, aba2, aba3, aba4 = st.tabs(["🔑 Entrar", "✨ Criar Conta", "🔓 Recuperar Senha", "🛠️ Admin"])
-    
-    with aba1:
-        st.subheader("Fazer Login")
-        email_login = st.text_input("Seu email", value=email_salvo, key="email_login")
-        senha_login = st.text_input("Sua senha", value=senha_salva, type="password", key="senha_login")
-        lembrar_me = st.checkbox("🔒 Lembrar meu login e senha", value=tem_dados_salvos, key="lembrar_me")
-        
-        if st.button("🔑 ENTRAR", type="primary", use_container_width=True):
-            ok, resp = verificar_login(email_login, senha_login)
-            if ok:
-                st.session_state.usuario = resp
-                st.session_state.usuario["email"] = email_login
-                if lembrar_me:
-                    salvar_lembrar_me(email_login, senha_login)
-                else:
-                    limpar_lembrar_me()
-                st.rerun()
-            else:
-                st.error(resp)
-    
-    with aba2:
-        st.subheader("Criar Nova Conta")
-        email_cad = st.text_input("Seu email", key="email_cad")
-        senha_cad = st.text_input("Criar senha", type="password", key="senha_cad")
-        if email_cad and senha_cad and "@" in email_cad and len(senha_cad) >= 4:
-            exibir_escolha_planos(email_cad)
-        else:
-            st.info("👆 Preencha email e senha acima para escolher seu plano")
-    
-    with aba3:
-        st.info("🔧 Recuperação: contate o suporte pelo WhatsApp ou e-mail.")
-    
-    with aba4:
-        st.subheader("🛠️ Painel de Administração")
-        senha_admin = st.text_input("Senha de Administrador", type="password", key="senha_admin")
-        if st.button("🔓 ACESSAR PAINEL", type="primary", use_container_width=True):
-            if senha_admin == SENHA_ADMIN:
-                st.session_state.admin = True
-                st.rerun()
-            else:
-                st.error("❌ Senha incorreta!")
-    
-    exibir_rodape_precos()
-
-else:
-    user_email = st.session_state.usuario.get("email", "")
-    user_plano = st.session_state.usuario.get("plano", "Gratuito")
-    ativo = st.session_state.usuario.get("plano_ativo", True)
-    perm = PLANOS[user_plano]["recursos"]
-    
-    if not ativo and user_plano != "Gratuito":
-        with st.sidebar:
-            st.markdown(f"""
-            <div style='background:rgba(239,68,68,0.1);border-radius:12px;padding:12px;margin-bottom:20px;'>
-            <p style='margin:0;'>👤 <strong>{user_email}</strong></p>
-            <p style='margin:5px 0;'>💳 Plano: {user_plano}</p>
-            <p style='margin:0;color:#f59e0b;'>⏳ Aguardando aprovação</p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.warning("Acesso restrito até aprovação.")
-            st.markdown("<div style='height:60px'></div>", unsafe_allow_html=True)
-            if st.button("🚪 Sair da conta", type="secondary", use_container_width=True):
-                if not carregar_json(ARQUIVO_LEMBRAR).get("lembrar", False):
-                    limpar_lembrar_me()
-                st.session_state.usuario = None
-                st.rerun()
-        st.title("🔐 Acesso Restrito")
-        st.info("Seu pagamento está aguardando aprovação. Você receberá notificação quando for liberado.")
-        st.info(f"📧 Contato: {CONFIG['email_suporte']}")
-        exibir_rodape_precos()
-        st.stop()
-    
-    with st.sidebar:
-        st.markdown(f"""
-        <div style='background:rgba(34,197,94,0.1);border-radius:12px;padding:12px;margin-bottom:20px;'>
-        <p style='margin:0;'>👤 <strong>{user_email}</strong></p>
-        <p style='margin:5px 0;'>💳 Plano: {user_plano}</p>
-        <p style='margin:0;color:#22c55e;'>✅ ATIVO</p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("---")
-        pagina = st.radio("Menu", [
-            "📊 Painel Principal", "🔍 Scanner de Arbitragem", "⏰ Histórico",
-            "🔔 Alertas", "🧮 Calculadora de Lucro", "📈 Resumo de Mercado",
-            "⚙️ Minhas Corretoras", "🔧 Configurações", "📑 Relatórios", "💳 Alterar Plano"
-        ])
-        st.markdown(f"<div style='font-size:12px;color:#94a3b8;'>⚙️ Moedas: {limite_moedas_usuario()}<br>🔄 Atualização: {intervalo_atualizacao_usuario()}s</div>", unsafe_allow_html=True)
-        st.markdown("<div style='height:40px'></div>", unsafe_allow_html=True)
-        if st.button("🚪 Sair da conta", type="secondary", use_container_width=True):
-            if not carregar_json(ARQUIVO_LEMBRAR).get("lembrar", False):
-                limpar_lembrar_me()
-            st.session_state.usuario = None
-            st.rerun()
-    
-    # 📊 PAINEL PRINCIPAL
-    if pagina == "📊 Painel Principal":
-        st.header("📊 Painel Principal")
-        st.markdown("---")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1: st.metric("Plano Ativo", user_plano)
-        with col2: st.metric("Moedas Monitoradas", limite_moedas_usuario())
-        with col3: st.metric("Atualização", f"{intervalo_atualizacao_usuario()}s")
-        with col4: st.metric("Status", "✅ Ativo")
-        st.markdown("---")
-        precos, _ = buscar_precos_rodape()
-        if precos:
-            cols = st.columns(5)
-            for i, (m, p) in enumerate(precos.items()):
-                with cols[i]: st.metric(m, f"${p:,.2f}")
-        st.info("🔄 Acesse **Scanner de Arbitragem** para ver oportunidades em tempo real.")
-        if user_plano == "Gratuito":
-            st.warning("💡 Dica: Atualize para o plano **Pro** para monitorar mais moedas!")
-    
-    # 🔍 SCANNER
-    elif pagina == "🔍 Scanner de Arbitragem":
-        if not perm["scanner_basico"]:
-            bloqueio_acesso()
-        else:
-            st.header("🔍 Scanner de Arbitragem")
-            qtd = limite_moedas_usuario()
-            moedas_disp = LISTA_MOEDAS_COMPLETA[:qtd]
-            with st.expander("⚙️ Configurar"):
-                moedas_sel = st.multiselect("Moedas", options=moedas_disp, default=moedas_disp[:min(5, qtd)])
-                lucro_min = st.slider("Lucro mínimo (%)", 0.05, 5.0, 0.3, 0.05)
-            if not moedas_sel:
-                st.info("👆 Selecione moedas.")
-            else:
-                with st.spinner("Analisando..."):
-                    oportunidades = escanear_oportunidades(moedas_sel, lucro_min)
-                if perm["historico_24h"] and oportunidades:
-                    salvar_no_historico(oportunidades)
-                if oportunidades:
-                    st.success(f"✅ {len(oportunidades)} oportunidade(s)!")
-                    for op in oportunidades:
-                        st.markdown(f"""
-                        <div style='background:rgba(34,197,94,0.08);border-left:4px solid #22c55e;padding:15px;margin:10px 0;'>
-                        <h4 style='margin:0;color:#22c55e;'>🪙 {op['moeda']} — {op['lucro_pct']}%</h4>
-                        <p>Comprar: <strong>{op['comprar_bolsa']}</strong> ${op['comprar_preco']:.4f}<br>
-                        Vender: <strong>{op['vender_bolsa']}</strong> ${op['vender_preco']:.4f}<br>
-                        ⏰ {op['horario']}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("⏳ Nenhuma oportunidade agora. Tente mais tarde.")
-    
-    # ⏰ HISTÓRICO
-    elif pagina == "⏰ Histórico":
-        if not perm["historico_24h"]:
-            bloqueio_acesso("Histórico apenas Pro/Premium")
-        else:
-            st.header("⏰ Histórico de Oportunidades")
-            hist = carregar_json(ARQUIVO_HISTORICO)
-            if not hist:
-                st.info("📋 Sem registro ainda.")
-            else:
-                limite = datetime.now() - timedelta(hours=24)
-                recentes = []
-                for op in hist.values():
-                    try:
-                        dt = datetime.strptime(op["horario"], "%d/%m/%Y %H:%M:%S")
-                        if dt >= limite:
-                            recentes.append(op)
-                    except:
-                        pass
-                if not recentes:
-                    st.info("📋 Nenhuma nos últimos 24h.")
-                else:
-                    st.success(f"📊 {len(recentes)} oportunidades nas últimas 24h")
-                    for op in sorted(recentes, key=lambda x: x["horario"], reverse=True):
-                        st.markdown(f"**{op['moeda']}** | {op['lucro_pct']}% | {op['horario']}")
-    
-    # 🔔 ALERTAS
-    elif pagina == "🔔 Alertas":
-        st.header("🔔 Alertas")
-        max_alertas = perm["alertas_quantidade"]
-        st.info(f"Você pode configurar até {max_alertas} alerta(s)")
-        alertas = st.session_state.usuario.get("alertas", [])
-        if len(alertas) >= max_alertas:
-            st.warning("Limite de alertas atingido.")
-        else:
-            with st.form("novo_alerta"):
-                moeda = st.selectbox("Moeda", LISTA_MOEDAS_COMPLETA[:limite_moedas_usuario()])
-                lucro_alvo = st.number_input("Lucro alvo (%)", min_value=0.1, value=1.0, step=0.1)
-                email_alerta = st.checkbox("Receber por e-mail", disabled=not perm["alertas_email"])
-                if st.form_submit_button("🔔 Criar Alerta"):
-                    alertas.append({"moeda": moeda, "lucro_alvo": lucro_alvo, "email": email_alerta, "ativa": True})
-                    st.session_state.usuario["alertas"] = alertas
-                    st.success(f"✅ Alerta criado!")
+    elif pagina == "🛠️ Painel de Administração":
+        if st.session_state.get("admin_logado") != True:
+            senha_admin = st.text_input("🔐 Senha de Administrador", type="password")
+            if st.button("🔑 ENTRAR", type="primary"):
+                if senha_admin == "admin123":
+                    st.session_state["admin_logado"] = True
                     st.rerun()
-        if alertas:
-            st.subheader("Seus Alertas")
-            for i, a in enumerate(alertas):
-                st.markdown(f"{i+1}. {a['moeda']} → {a['lucro_alvo']}% | {'✅ Ativo' if a['ativa'] else '⏸️ Inativo'}")
-    
-    # 🧮 CALCULADORA DE LUCRO
-    elif pagina == "🧮 Calculadora de Lucro":
-        st.header("🧮 Calculadora de Lucro")
-        st.markdown("---")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            preco_compra = st.number_input("Preço de Compra (US$)", min_value=0.0, step=0.0001, format="%.4f")
-            preco_venda = st.number_input("Preço de Venda (US$)", min_value=0.0, step=0.0001, format="%.4f")
-            valor_investido = st.number_input("Valor Investido (US$)", min_value=0.0, step=1.0)
-        
-        with col2:
-            st.info("📊 Resultado")
-            if preco_compra > 0 and preco_venda > 0 and valor_investido > 0:
-                qtd_moedas = valor_investido / preco_compra
-                valor_total_venda = qtd_moedas * preco_venda
-                lucro_bruto = valor_total_venda - valor_investido
-                taxa_compra = CORRETORAS["Binance"]["taxa_compra"] / 100
-                taxa_venda = CORRETORAS["Binance"]["taxa_venda"] / 100
-                custos = (valor_investido * taxa_compra) + (valor_total_venda * taxa_venda)
-                lucro_liquido = lucro_bruto - custos
-                percentual = (lucro_liquido / valor_investido) * 100 if valor_investido > 0 else 0
-                
-                st.metric("Quantidade de Moedas", f"{qtd_moedas:.6f}")
-                st.metric("Valor na Venda", f"US$ {valor_total_venda:.2f}")
-                st.metric("Lucro Bruto", f"US$ {lucro_bruto:.2f}")
-                st.metric("Taxas Estimadas", f"US$ {custos:.2f}")
-                st.metric("💵 LUCRO LÍQUIDO", f"US$ {lucro_liquido:.2f}", f"{percentual:.2f}%")
-            else:
-                st.info("Preencha os valores à esquerda")
-
-    # 📈 RESUMO DE MERCADO
-    elif pagina == "📈 Resumo de Mercado":
-        st.header("📈 Resumo de Mercado")
-        st.markdown("---")
-        precos, fonte = buscar_precos_rodape()
-        if precos:
-            for moeda, preco in precos.items():
-                st.metric(f"{moeda} / USDT", f"${preco:,.4f}")
-            st.info(f"Fonte: {fonte} • Atualizado automaticamente a cada 60 segundos")
-        else:
-            st.warning("Não foi possível carregar os preços. Tente novamente.")
-
-    # ⚙️ MINHAS CORRETORAS
-    elif pagina == "⚙️ Minhas Corretoras":
-        if not perm["corretoras_integracao"]:
-            bloqueio_acesso("Integração com corretoras disponível apenas nos planos Pro e Premium")
-        else:
-            st.header("⚙️ Minhas Corretoras")
-            st.markdown("---")
-            st.info("🔑 Insira suas chaves API de cada corretora para integração")
-            
-            chaves_usuario = st.session_state.usuario.get("chaves", {})
-            
-            for corretora in CORRETORAS.keys():
-                with st.expander(f"🔌 {corretora}"):
-                    api_key = st.text_input(f"API Key — {corretora}", 
-                                           value=chaves_usuario.get(corretora, {}).get("api_key", ""), 
-                                           type="password", key=f"api_{corretora}")
-                    api_secret = st.text_input(f"API Secret — {corretora}", 
-                                              value=chaves_usuario.get(corretora, {}).get("api_secret", ""), 
-                                              type="password", key=f"secret_{corretora}")
-                    
-                    if st.button(f"💾 Salvar — {corretora}", key=f"save_{corretora}"):
-                        if "chaves" not in st.session_state.usuario:
-                            st.session_state.usuario["chaves"] = {}
-                        st.session_state.usuario["chaves"][corretora] = {
-                            "api_key": api_key,
-                            "api_secret": api_secret
-                        }
-                        st.success(f"✅ {corretora} salva!")
-                        st.rerun()
-
-    # 🔧 CONFIGURAÇÕES
-    elif pagina == "🔧 Configurações":
-        if not perm["configuracoes"]:
-            bloqueio_acesso("Configurações avançadas disponíveis apenas nos planos Pro e Premium")
-        else:
-            st.header("🔧 Configurações da Conta")
-            st.markdown("---")
-            
-            config = st.session_state.usuario.get("config", {"lucro_min": 0.3, "intervalo": 60})
-            
-            novo_lucro = st.slider("Lucro mínimo padrão (%)", 0.05, 5.0, float(config.get("lucro_min", 0.3)), 0.05)
-            novo_intervalo = st.slider("Intervalo de verificação (segundos)", 15, 300, int(config.get("intervalo", 60)), 15)
-            
-            st.markdown("---")
-            st.subheader("🔐 Alterar Senha")
-            senha_atual = st.text_input("Senha Atual", type="password")
-            nova_senha = st.text_input("Nova Senha", type="password")
-            confirma_senha = st.text_input("Confirmar Nova Senha", type="password")
-            
-            if st.button("💾 SALVAR TUDO", type="primary", use_container_width=True):
-                st.session_state.usuario["config"] = {
-                    "lucro_min": novo_lucro,
-                    "intervalo": novo_intervalo
-                }
-                if nova_senha:
-                    if nova_senha != confirma_senha:
-                        st.error("❌ Senhas não coincidem!")
-                    else:
-                        usuarios = carregar_json(ARQUIVO_USUARIOS)
-                        if usuarios.get(user_email, {}).get("senha") == senha_atual:
-                            usuarios[user_email]["senha"] = nova_senha
-                            salvar_json(ARQUIVO_USUARIOS, usuarios)
-                            st.success("✅ Senha alterada!")
-                        else:
-                            st.error("❌ Senha atual incorreta!")
                 else:
-                    st.success("✅ Configurações salvas!")
-                st.rerun()
-
-    # 📑 RELATÓRIOS
-    elif pagina == "📑 Relatórios":
-        if not perm["relatorios"]:
-            bloqueio_acesso("Relatórios detalhados disponíveis apenas no plano Premium")
-        else:
-            st.header("📑 Relatórios")
+                    st.error("❌ Senha incorreta!")
+            st.stop()
+        
+        st.header("🛠️ PAINEL DE ADMINISTRAÇÃO")
+        st.markdown("---")
+        
+        # 📬 ABA DE CONFIGURAÇÕES
+        aba_admin1, aba_admin2, aba_admin3 = st.tabs(["📋 Pagamentos", "⚙️ Sistema", "📧 E-mail"])
+        
+        with aba_admin1:
+            st.subheader("🔔 Pagamentos Pendentes")
+            if "notificacoes" in st.session_state and st.session_state["notificacoes"]:
+                for notif in st.session_state["notificacoes"][:5]:
+                    icone = "🟢" if notif["lida"] else "🔴"
+                    st.info(f"{icone} {notif['hora']} — {notif['email']} | {notif['plano']} | R$ {notif['valor']:.2f}")
             st.markdown("---")
-            st.info("📊 Relatório completo de oportunidades detectadas")
             
-            historico = carregar_json(ARQUIVO_HISTORICO)
-            if historico:
-                st.subheader("📈 Resumo Geral")
-                total = len(historico)
-                media_lucro = sum(op.get("lucro_pct", 0) for op in historico.values()) / total if total > 0 else 0
-                max_lucro = max((op.get("lucro_pct", 0) for op in historico.values()), default=0)
-                
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Total de Oportunidades", total)
-                col2.metric("Média de Lucro", f"{media_lucro:.2f}%")
-                col3.metric("Maior Lucro", f"{max_lucro:.2f}%")
-                
-                st.download_button(
-                    "📥 Baixar Relatório Completo (CSV)",
-                    data="moeda,comprar_em,vender_em,lucro_pct,horario\n" + 
-                    "\n".join([f"{op['moeda']},{op['comprar_bolsa']},{op['vender_bolsa']},{op['lucro_pct']},{op['horario']}" 
-                              for op in historico.values()]),
-                    file_name=f"relatorio_arbitragem_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv"
-                )
+            usuarios = carregar_json(ARQUIVO_USUARIOS)
+            pendentes = {
+                email: dados 
+                for email, dados in usuarios.items()
+                if dados.get("status_pagamento") == "pendente" and not dados.get("plano_ativo", False)
+            }
+            
+            if pendentes:
+                st.subheader(f"⏳ {len(pendentes)} Aguardando VERIFICAÇÃO")
+                st.markdown("---")
+                for email, dados in pendentes.items():
+                    with st.expander(f"📋 {email} — {dados.get('plano_escolhido', '—')}"):
+                        st.write(f"💰 Valor: R$ {dados.get('valor_pago', 0):.2f}")
+                        st.write(f"🆔 ID Pagamento: {dados.get('id_pagamento', '—')}")
+                        st.write(f"📅 Data: {dados.get('data_pagamento', '—')}")
+                        
+                        caminho_img = dados.get("caminho_comprovante", "")
+                        if caminho_img and os.path.exists(caminho_img):
+                            st.markdown("### 📎 COMPROVANTE ENVIADO:")
+                            st.image(caminho_img, caption=f"Comprovante — {email}", width=400)
+                            st.success("✅ Imagem carregada — Verifique a originalidade!")
+                        else:
+                            st.warning("⚠️ Nenhuma imagem anexada!")
+                        
+                        col_aprov, col_rej = st.columns(2)
+                        with col_aprov:
+                            if st.button(f"✅ APROVAR E LIBERAR", key=f"apr_{email}", type="primary"):
+                                usuarios[email]["status_pagamento"] = "aprovado"
+                                usuarios[email]["plano_ativo"] = True
+                                salvar_json(ARQUIVO_USUARIOS, usuarios)
+                                
+                                # ✅ ENVIAR E-MAIL PARA O CLIENTE
+                                if CONFIG.get("email_remetente") and CONFIG.get("senha_app_email"):
+                                    assunto = "✅ Pagamento APROVADO — Acesso Liberado!"
+                                    html = f"""
+                                    <html>
+                                    <body style="font-family:Arial,sans-serif;max-width:600px;margin:0;padding:20px;background:#f9fafb;">
+                                    <div style="background:white;border-radius:12px;padding:25px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                                    <h2 style="color:#22c55e;margin-top:0;">✅ Seu plano foi liberado!</h2>
+                                    <p>Olá, <strong>{email}</strong>,</p>
+                                    <p>Seu pagamento foi confirmado e o plano <strong>{dados.get('plano_escolhido', '—')}</strong> está ativo!</p>
+                                    <p>Acesse o aplicativo e comece a usar agora mesmo.</p>
+                                    <p style="color:#999;font-size:12px;margin-top:30px;">Arbitragem AI © 2026</p>
+                                    </div>
+                                    </body>
+                                    </html>
+                                    """
+                                    enviado, _ = enviar_email(email, assunto, html)
+                                    if enviado:
+                                        st.info("📧 E-mail enviado ao cliente!")
+                                
+                                st.success(f"✅ {email} — PLANO LIBERADO!")
+                                st.balloons()
+                                st.rerun()
+                        with col_rej:
+                            if st.button(f"❌ REJEITAR", key=f"rej_{email}"):
+                                usuarios[email]["status_pagamento"] = "rejeitado"
+                                salvar_json(ARQUIVO_USUARIOS, usuarios)
+                                st.warning(f"❌ {email} — REJEITADO!")
+                                st.rerun()
             else:
-                st.info("Ainda não há dados para gerar relatório.")
-
-    # 💳 ALTERAR PLANO
-    elif pagina == "💳 Alterar Plano":
-        st.header("💳 Alterar Plano")
-        st.markdown("---")
-        st.info(f"Plano atual: **{user_plano}**")
-        st.markdown("---")
-        exibir_escolha_planos(user_email)
-
-    exibir_rodape_precos()
+                st.info("✅ Nenhum pagamento pendente.")
+            
+            st.markdown("---")
+            st.subheader("📊 Todos os Clientes")
+            if not usuarios:
+                st.info("Ainda não há clientes.")
+            else:
+                for email, dados in usuarios.items():
+                    icone = {"aprovado":"✅", "pendente":"⏳", "rejeitado":"❌"}.get(dados.get("status_pagamento","aprovado"), "❓")
+                    plano_atual = dados.get("plano", "Gratuito")
+                    status = dados.get("status_pagamento", "aprovado")
+                    with st.expander(f"{icone} {email} | Plano: {plano_atual} | {status.upper()}"):
+                        col1, col2, col3 = st.columns([2, 2, 1])
+                        with col1:
+                            novo_plano = st.selectbox(
+                                "Alterar Plano", list(PLANOS.keys()),
+                                index=list(PLANOS.keys()).index(plano_atual),
+                                key=f"plano_{email}"
+                            )
+                            if st.button(f"🔄 Aplicar", key=f"apl_{email}"):
+                                usuarios[email]["plano"] = novo_plano
+                                if novo_plano == "Gratuito":
+                                    usuarios[email]["status_pagamento"] = "aprovado"
+                                    usuarios[email]["plano_ativo"] = True
+                                salvar_json(ARQUIVO_USUARIOS, usuarios)
+                                st.success(f"✅ Plano alterado para {novo_plano}!")
+                                st.rerun()
+                        with col2:
+                            st.write(f"📅 Cadastro: {dados.get('data_cadastro', '—')}")
+                            st.write(f"🔑 Status: {status}")
+                            st.write(f"⚡ Ativo: {'SIM' if dados.get('plano_ativo', False) else 'NÃO'}")
+                            if dados.get("caminho_comprovante") and os.path.exists(dados.get("caminho_comprovante")):
+                                st.image(dados.get("caminho_comprovante"), width=200, caption="Comprovante")
+                        with col3:
+                            if st.button("🗑️ EXCLUIR", key=f"del_{email}"):
+                                if f"conf_del_{email}" not in st.session_state:
+                                    st.session_state[f"conf_del_{email}"] = True
+                                    st.warning(f"⚠️ Clique NOVAMENTE para excluir {email}")
+                                else:
+                                    if dados.get("caminho_comprovante") and os.path.exists(dados.get("caminho_comprovante")):
+                                        os.remove(dados.get("caminho_comprovante"))
+                                    del usuarios[email]
+                                    salvar_json(ARQUIVO_USUARIOS, usuarios)
+                                    st.success(f"🗑️ {email} — EXCLUÍDO!")
+                                    if f"conf_del_{email}" in st.session_state:
+                                        del st.session_state[f"conf_del_{email}"]
+                                    st.rerun()
+        
+        with aba_admin2:
+            st.subheader("💰 Dados do Sistema")
+            novo_nome = st.text_input("Nome do recebedor do PIX", value=CONFIG["pix_nome_recebedor"])
+            nova_chave = st.text_input("Chave PIX", value=CONFIG["pix_chave"])
+            novo_email_sup = st.text_input("E-mail de suporte", value=CONFIG["email_suporte"])
+            nova_chave_cmc = st.text_input("API Key CoinMarketCap (opcional)", value=CONFIG.get("coinmarketcap_api_key", ""), type="password")
+            novo_whatsapp = st.text_input("WhatsApp do Administrador", value=CONFIG["whatsapp_admin"])
+            
+            if st.button("💾 SALVAR DADOS DO SISTEMA", type="primary"):
+                CONFIG["pix_nome_recebedor"] = novo_nome
+                CONFIG["pix_chave"] = nova_chave
+                CONFIG["email_suporte"] = novo_email_sup
+                CONFIG["coinmarketcap_api_key"] = nova_chave_cmc
+                CONFIG["whatsapp_admin"] = novo_whatsapp
+                st.success("✅ Dados salvos! Atualize a página.")
+        
+        with aba_admin3:
+            st.subheader("📧 Configurações de E-mail")
+            st.info("Preencha abaixo para receber notificações e avisar os clientes por e-mail.")
+            
+            email_rem = st.text_input("E-mail Remetente", value=CONFIG.get("email_remetente", ""))
+            senha_app = st.text_input("Senha de Aplicativo", value=CONFIG.get("senha_app_email", ""), type="password",
+                                      help="Não é a senha normal! Para Gmail: ative verificação em 2 etapas → gere 'Senha de App'")
+            smtp_serv = st.text_input("Servidor SMTP", value=CONFIG.get("smtp_servidor", "smtp.gmail.com"))
+            smtp_port = st.number_input("Porta SMTP", value=CONFIG.get("smtp_porta", 587))
+            
+            if st.button("💾 SALVAR CONFIGURAÇÕES DE E-MAIL", type="primary"):
+                CONFIG["email_remetente"] = email_rem
+                CONFIG["senha_app_email"] = senha_app
+                CONFIG["smtp_servidor"] = smtp_serv
+                CONFIG["smtp_porta"] = int(smtp_port)
+                st.success("✅ Configurações de e-mail salvas!")
+            
+            st.markdown("---")
+            st.subheader("🧪 Testar Envio")
+            email_teste = st.text_input("E-mail para teste", placeholder="seuemail@exemplo.com")
+            if st.button("📤 ENVIAR E-MAIL DE TESTE"):
+                if not CONFIG.get("email_remetente") or not CONFIG.get("senha_app_email"):
+                    st.error("⚠️ Preencha e salve as configurações acima primeiro!")
+                else:
+                    assunto = "✅ Teste — Arbitragem AI"
+                    html = """
+                    <html>
+                    <body style="font-family:Arial,sans-serif;padding:20px;">
+                    <h2 style="color:#22c55e;">✅ Funcionou!</h2>
+                    <p>O e-mail está configurado corretamente.</p>
+                    <p>Arbitragem AI © 2026</p>
+                    </body>
+                    </html>
+                    """
+                    enviado, msg = enviar_email(email_teste, assunto, html)
+                    if enviado:
+                        st.success("✅ E-mail enviado com sucesso! Verifique a caixa de entrada.")
+                    else:
+                        st.error(f"❌ Erro: {msg}")
