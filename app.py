@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # ==============================================
@@ -11,40 +11,93 @@ from urllib.parse import quote
 st.set_page_config(page_title="Arbitragem AI", page_icon="🤖", layout="wide")
 
 CONFIG = {
-    "pix_nome_recebedor": "Inacio Silva",
-    "pix_chave": "11571293744",
+    "pix_nome_recebedor": "Seu Nome Completo",
+    "pix_chave": "sua.chave.pix@exemplo.com",
     "whatsapp_admin": "5521997524939",
-    "email_suporte": "suportearbitrageai@gmail.com"
+    "email_suporte": "seuemail@exemplo.com",
+    "coinmarketcap_api_key": ""
 }
 
-SENHA_ADMIN = "1911Gilson@"
+SENHA_ADMIN = "admin123"
 ARQUIVO_USUARIOS = "usuarios.json"
 ARQUIVO_LEMBRAR = "lembrar_me.json"
 PASTA_COMPROVANTES = "comprovantes"
+ARQUIVO_HISTORICO = "historico_alertas.json"
 
 os.makedirs(PASTA_COMPROVANTES, exist_ok=True)
 
+# ==============================================
+# 🔒 PERMISSÕES POR PLANO
+# ==============================================
 PLANOS = {
     "Gratuito": {
         "preco": 0.00,
         "moedas": 3,
         "intervalo": 120,
         "suporte": "Básico",
-        "descricao": "Ideal para começar"
+        "descricao": "Ideal para começar",
+        "recursos": {
+            "painel_principal": True,
+            "scanner_basico": True,
+            "scanner_avancado": False,
+            "historico_24h": False,
+            "alertas_quantidade": 1,
+            "alertas_email": False,
+            "calculadora_lucro": True,
+            "resumo_mercado": True,
+            "corretoras_integracao": False,
+            "configuracoes": False,
+            "relatorios": False,
+            "multiplas_corretoras": 2,
+            "atualizacao_segundos": 120,
+            "suporte_prioritario": False
+        }
     },
     "Pro": {
         "preco": 49.90,
-        "moedas": 999,
+        "moedas": 50,
         "intervalo": 60,
         "suporte": "Prioritário",
-        "descricao": "Para quem quer crescer"
+        "descricao": "Para quem quer crescer",
+        "recursos": {
+            "painel_principal": True,
+            "scanner_basico": True,
+            "scanner_avancado": True,
+            "historico_24h": True,
+            "alertas_quantidade": 10,
+            "alertas_email": True,
+            "calculadora_lucro": True,
+            "resumo_mercado": True,
+            "corretoras_integracao": True,
+            "configuracoes": True,
+            "relatorios": False,
+            "multiplas_corretoras": 5,
+            "atualizacao_segundos": 60,
+            "suporte_prioritario": True
+        }
     },
     "Premium": {
         "preco": 99.90,
         "moedas": 999,
         "intervalo": 15,
         "suporte": "VIP 24/7",
-        "descricao": "Máxima velocidade"
+        "descricao": "Máxima velocidade",
+        "recursos": {
+            "painel_principal": True,
+            "scanner_basico": True,
+            "scanner_avancado": True,
+            "historico_24h": True,
+            "alertas_quantidade": 999,
+            "alertas_email": True,
+            "calculadora_lucro": True,
+            "resumo_mercado": True,
+            "corretoras_integracao": True,
+            "configuracoes": True,
+            "relatorios": True,
+            "multiplas_corretoras": 5,
+            "atualizacao_segundos": 15,
+            "suporte_prioritario": True
+        }
     }
 }
 
@@ -56,8 +109,10 @@ CORRETORAS = {
     "OKX": {"ativa": True, "taxa_compra": 0.1, "taxa_venda": 0.1}
 }
 
+LISTA_MOEDAS_COMPLETA = ["BTC", "ETH", "SOL", "XRP", "ADA", "DOGE", "AVAX", "MATIC", "DOT", "LINK", "ATOM", "NEAR", "FIL", "UNI", "AAVE"]
+
 # ==============================================
-# 📂 BANCO DE DADOS
+# 📂 FUNÇÕES AUXILIARES
 # ==============================================
 def carregar_json(arquivo):
     if not os.path.exists(arquivo):
@@ -84,8 +139,35 @@ def salvar_comprovante(arquivo_upload, id_pagamento):
 def gerar_id_pagamento():
     return f"PAG{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
+def verificar_permissao(recurso):
+    if "usuario" not in st.session_state or not st.session_state.usuario:
+        return False
+    plano = st.session_state.usuario.get("plano", "Gratuito")
+    return PLANOS[plano]["recursos"].get(recurso, False)
+
+def limite_moedas_usuario():
+    if "usuario" not in st.session_state or not st.session_state.usuario:
+        return 3
+    plano = st.session_state.usuario.get("plano", "Gratuito")
+    return PLANOS[plano]["moedas"]
+
+def intervalo_atualizacao_usuario():
+    if "usuario" not in st.session_state or not st.session_state.usuario:
+        return 120
+    plano = st.session_state.usuario.get("plano", "Gratuito")
+    return PLANOS[plano]["intervalo"]
+
+def bloqueio_acesso(mensagem="🔒 Recurso disponível apenas nos planos Pro e Premium"):
+    st.markdown(f"""
+    <div style='background:rgba(239,68,68,0.1);border:1px solid #ef4444;border-radius:12px;padding:30px;text-align:center;'>
+    <h3 style='color:#ef4444;margin:0;'>🔒 ACESSO RESTRITO</h3>
+    <p style='color:#94a3b8;margin:15px 0;'>{mensagem}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    return False
+
 # ==============================================
-# 💳 PIX
+# 💳 PIX E PAGAMENTOS
 # ==============================================
 def gerar_codigo_pix(valor, descricao, email):
     chave = CONFIG["pix_chave"]
@@ -141,6 +223,24 @@ def exibir_escolha_planos(email_cliente):
     st.markdown("## 💳 Escolha seu Plano")
     st.markdown("---")
     
+    st.markdown("### 📋 Comparativo de Planos")
+    st.markdown("""
+    | Recurso | Gratuito 🆓 | Pro 🚀 | Premium 👑 |
+    |---|---|---|---|
+    | Scanner de arbitragem | ✅ Básico | ✅ Completo | ✅ Completo |
+    | Moedas monitoradas | 3 | 50 | Ilimitado |
+    | Atualização | 2 min | 1 min | 15 seg |
+    | Histórico de oportunidades | ❌ | ✅ 24h | ✅ Completo |
+    | Alertas ativos | 1 | 10 | Ilimitado |
+    | Alertas por e-mail | ❌ | ✅ | ✅ |
+    | Integração corretoras | ❌ | ✅ | ✅ |
+    | Calculadora de lucro | ✅ | ✅ | ✅ |
+    | Relatórios | ❌ | ❌ | ✅ |
+    | Suporte | Básico | Prioritário | VIP 24/7 |
+    | Preço | Grátis | R$ 49,90/mês | R$ 99,90/mês |
+    """)
+    st.markdown("---")
+    
     cols = st.columns(3)
     for idx, (nome, dados) in enumerate(PLANOS.items()):
         destaque = nome != "Gratuito"
@@ -150,7 +250,7 @@ def exibir_escolha_planos(email_cliente):
                 <h3 style='color:{"#f59e0b" if destaque else "#9ca3af"};margin:0;'>{nome}</h3>
                 <p style='color:#94a3b8;font-size:13px;'>{dados['descricao']}</p>
                 <p style='font-size:32px;font-weight:bold;margin:15px 0;'>
-                    {'Grátis' if dados['preco'] == 0 else f"R$ {dados['preco']:.2f}"}
+                    {'Grátis' if dados['preco'] == 0 else f"R$ {dados['preco']:.2f}<small style='font-size:12px'>/mês</small>"}
                 </p>
                 <p style='font-size:13px;color:#94a3b8;'>
                     🔄 Atualização: {dados['intervalo']}s<br>
@@ -179,6 +279,7 @@ def exibir_escolha_planos(email_cliente):
             st.balloons()
             del st.session_state["plano_escolhido"]
             st.session_state.usuario = carregar_dados_usuario(email_cliente, plano)
+            st.session_state.usuario["email"] = email_cliente
             st.rerun()
         else:
             id_pag = gerar_id_pagamento()
@@ -188,7 +289,7 @@ def exibir_escolha_planos(email_cliente):
             st.markdown(f"""
             <div style='background:rgba(30,41,59,0.9);border:2px solid #22c55e;border-radius:16px;padding:24px;text-align:center;margin:20px 0;'>
             <h3 style='color:#22c55e;margin:0;'>💳 Pagamento via PIX — {plano}</h3>
-            <p style='font-size:28px;font-weight:bold;color:white;margin:10px 0;'>R$ {valor:.2f}</p>
+            <p style='font-size:28px;font-weight:bold;color:white;margin:10px 0;'>R$ {valor:.2f}/mês</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -233,7 +334,7 @@ def exibir_escolha_planos(email_cliente):
                     st.stop()
 
 # ==============================================
-# 🔍 PREÇOS — COM VERIFICAÇÃO SEGURA
+# 🔍 PREÇOS E SCANNER
 # ==============================================
 @st.cache_data(ttl=60)
 def buscar_precos_rodape():
@@ -314,7 +415,7 @@ def buscar_preco_bolsa(simbolo, corretora):
         pass
     return None
 
-def escanear_oportunidades(lista_moedas=["BTC", "ETH", "SOL", "XRP", "ADA", "DOGE", "AVAX", "MATIC"]):
+def escanear_oportunidades(lista_moedas, min_lucro=0.05):
     corretoras_ativas = list(CORRETORAS.keys())
     oportunidades = []
     for moeda in lista_moedas:
@@ -327,19 +428,29 @@ def escanear_oportunidades(lista_moedas=["BTC", "ETH", "SOL", "XRP", "ADA", "DOG
             mais_barata = min(precos.items(), key=lambda x: x[1])
             mais_cara = max(precos.items(), key=lambda x: x[1])
             spread_pct = ((mais_cara[1] - mais_barata[1]) / mais_barata[1]) * 100
-            if spread_pct >= 0.05:
+            if spread_pct >= min_lucro:
                 oportunidades.append({
                     "moeda": moeda,
                     "comprar_bolsa": mais_barata[0],
                     "comprar_preco": mais_barata[1],
                     "vender_bolsa": mais_cara[0],
                     "vender_preco": mais_cara[1],
-                    "lucro_pct": round(spread_pct, 2)
+                    "lucro_pct": round(spread_pct, 2),
+                    "horario": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 })
     return sorted(oportunidades, key=lambda x: x["lucro_pct"], reverse=True)
 
+def salvar_no_historico(oportunidades):
+    historico = carregar_json(ARQUIVO_HISTORICO)
+    for op in oportunidades:
+        historico[f"{op['moeda']}_{op['horario']}"] = op
+    if len(historico) > 1000:
+        chaves = sorted(historico.keys(), reverse=True)[:1000]
+        historico = {k: historico[k] for k in chaves}
+    salvar_json(ARQUIVO_HISTORICO, historico)
+
 # ==============================================
-# 📡 RODAPÉ COM PREÇOS
+# 📡 RODAPÉ
 # ==============================================
 def exibir_rodape_precos():
     moedas_rodape = ["BTC", "ETH", "SOL", "XRP", "ADA"]
@@ -472,7 +583,7 @@ def painel_administracao():
         st.success("✅ Salvo! Atualize a página!")
 
 # ==============================================
-# 🔐 LOGIN COM "LEMBRAR-ME"
+# 🔐 AUTENTICAÇÃO
 # ==============================================
 def verificar_login(email, senha):
     usuarios = carregar_json(ARQUIVO_USUARIOS)
@@ -493,7 +604,8 @@ def criar_conta(email, senha, plano):
         "plano_ativo": True if plano == "Gratuito" else False,
         "data_cadastro": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "chaves": {},
-        "config": {"lucro_min": 0.3, "intervalo": 60}
+        "config": {"lucro_min": 0.3, "intervalo": 60},
+        "alertas": []
     }
     salvar_json(ARQUIVO_USUARIOS, usuarios)
     return True, "Conta criada com sucesso!"
@@ -505,15 +617,12 @@ def carregar_dados_usuario(email, plano_padrao="Gratuito"):
         "status_pagamento": "aprovado",
         "plano_ativo": True,
         "chaves": {},
-        "config": {"lucro_min": 0.3, "intervalo": 60}
+        "config": {"lucro_min": 0.3, "intervalo": 60},
+        "alertas": []
     })
 
 def salvar_lembrar_me(email, senha):
-    salvar_json(ARQUIVO_LEMBRAR, {
-        "email": email,
-        "senha": senha,
-        "lembrar": True
-    })
+    salvar_json(ARQUIVO_LEMBRAR, {"email": email, "senha": senha, "lembrar": True})
 
 def carregar_lembrar_me():
     dados = carregar_json(ARQUIVO_LEMBRAR)
@@ -533,8 +642,8 @@ if "usuario" not in st.session_state:
 if "admin" not in st.session_state:
     st.session_state.admin = False
 
-# Carregar dados salvos
 email_salvo, senha_salva = carregar_lembrar_me()
+tem_dados_salvos = bool(email_salvo and senha_salva)
 
 st.title("🤖 Arbitragem AI")
 st.warning(f"⚠️ Apenas análise. Não é recomendação de investimento. Suporte: {CONFIG['email_suporte']}")
@@ -553,19 +662,15 @@ if not st.session_state.usuario:
     
     with aba1:
         st.subheader("Fazer Login")
-        
-        # ✅ Campos com valores salvos
         email_login = st.text_input("Seu email", value=email_salvo, key="email_login")
         senha_login = st.text_input("Sua senha", value=senha_salva, type="password", key="senha_login")
-        
-        # ✅ CAIXA "LEMBRAR-ME" — ENTRE SENHA E BOTÃO!
-        lembrar_me = st.checkbox("🔒 Lembrar meu login e senha", value=bool(email_salvo and senha_salva), key="lembrar_me")
+        lembrar_me = st.checkbox("🔒 Lembrar meu login e senha", value=tem_dados_salvos, key="lembrar_me")
         
         if st.button("🔑 ENTRAR", type="primary", use_container_width=True):
             ok, resp = verificar_login(email_login, senha_login)
             if ok:
                 st.session_state.usuario = resp
-                # Salvar ou limpar conforme escolha
+                st.session_state.usuario["email"] = email_login
                 if lembrar_me:
                     salvar_lembrar_me(email_login, senha_login)
                 else:
@@ -602,110 +707,301 @@ else:
     user_email = st.session_state.usuario.get("email", "")
     user_plano = st.session_state.usuario.get("plano", "Gratuito")
     ativo = st.session_state.usuario.get("plano_ativo", True)
-    status = st.session_state.usuario.get("status_pagamento", "aprovado")
+    perm = PLANOS[user_plano]["recursos"]
+    
+    if not ativo and user_plano != "Gratuito":
+        with st.sidebar:
+            st.markdown(f"""
+            <div style='background:rgba(239,68,68,0.1);border-radius:12px;padding:12px;margin-bottom:20px;'>
+            <p style='margin:0;'>👤 <strong>{user_email}</strong></p>
+            <p style='margin:5px 0;'>💳 Plano: {user_plano}</p>
+            <p style='margin:0;color:#f59e0b;'>⏳ Aguardando aprovação</p>
+            </div>
+            """, unsafe_allow_html=True)
+            st.warning("Acesso restrito até aprovação.")
+            st.markdown("<div style='height:60px'></div>", unsafe_allow_html=True)
+            if st.button("🚪 Sair da conta", type="secondary", use_container_width=True):
+                if not carregar_json(ARQUIVO_LEMBRAR).get("lembrar", False):
+                    limpar_lembrar_me()
+                st.session_state.usuario = None
+                st.rerun()
+        st.title("🔐 Acesso Restrito")
+        st.info("Seu pagamento está aguardando aprovação. Você receberá notificação quando for liberado.")
+        st.info(f"📧 Contato: {CONFIG['email_suporte']}")
+        exibir_rodape_precos()
+        st.stop()
     
     with st.sidebar:
         st.markdown(f"""
         <div style='background:rgba(34,197,94,0.1);border-radius:12px;padding:12px;margin-bottom:20px;'>
         <p style='margin:0;'>👤 <strong>{user_email}</strong></p>
         <p style='margin:5px 0;'>💳 Plano: {user_plano}</p>
-        <p style='margin:0;color:{"#22c55e" if ativo else "#f59e0b"};'>⏳ Status: {"ATIVO" if ativo else status.upper()}</p>
+        <p style='margin:0;color:#22c55e;'>✅ ATIVO</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        if not ativo and user_plano != "Gratuito":
-            st.warning("⏳ Aguardando aprovação.")
-        
         st.markdown("---")
         pagina = st.radio("Menu", [
-            "📊 Painel Principal",
-            "🔍 Scanner de Arbitragem",
-            "⏰ Histórico",
-            "🔔 Alertas",
-            "🧮 Calculadora de Lucro",
-            "📈 Resumo de Mercado",
-            "⚙️ Minhas Corretoras",
-            "🔧 Configurações",
-            "💳 Alterar Plano"
+            "📊 Painel Principal", "🔍 Scanner de Arbitragem", "⏰ Histórico",
+            "🔔 Alertas", "🧮 Calculadora de Lucro", "📈 Resumo de Mercado",
+            "⚙️ Minhas Corretoras", "🔧 Configurações", "📑 Relatórios", "💳 Alterar Plano"
         ])
-        
-        st.markdown("<div style='height:60px'></div>", unsafe_allow_html=True)
-        
-        # ✅ BOTÃO SAIR — CANTO INFERIOR ESQUERDO
+        st.markdown(f"<div style='font-size:12px;color:#94a3b8;'>⚙️ Moedas: {limite_moedas_usuario()}<br>🔄 Atualização: {intervalo_atualizacao_usuario()}s</div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:40px'></div>", unsafe_allow_html=True)
         if st.button("🚪 Sair da conta", type="secondary", use_container_width=True):
+            if not carregar_json(ARQUIVO_LEMBRAR).get("lembrar", False):
+                limpar_lembrar_me()
             st.session_state.usuario = None
-            # Limpar dados salvos ao sair, se não estiver marcado "Lembrar-me"
-            _, dados_lembrar = carregar_json(ARQUIVO_LEMBRAR), None
-            if os.path.exists(ARQUIVO_LEMBRAR):
-                dados = carregar_json(ARQUIVO_LEMBRAR)
-                if not dados.get("lembrar", False):
-                    limpar_lembrar_me()
             st.rerun()
     
+    # 📊 PAINEL PRINCIPAL
     if pagina == "📊 Painel Principal":
         st.header("📊 Painel Principal")
-        dados = carregar_dados_usuario(user_email, user_plano)
-        cfg = dados.get("config", {})
-        col1, col2 = st.columns(2)
-        with col1:
-            st.text(f"💰 Lucro mínimo: {cfg.get('lucro_min', 0.3)}%")
-        with col2:
-            st.text(f"⏱️ Intervalo: {cfg.get('intervalo', 60)}s")
         st.markdown("---")
-        if not ativo and user_plano != "Gratuito":
-            st.info("⏳ Aguardando aprovação do pagamento.")
-        else:
-            st.success("✅ Plano ativo! Aproveite!")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1: st.metric("Plano Ativo", user_plano)
+        with col2: st.metric("Moedas Monitoradas", limite_moedas_usuario())
+        with col3: st.metric("Atualização", f"{intervalo_atualizacao_usuario()}s")
+        with col4: st.metric("Status", "✅ Ativo")
+        st.markdown("---")
+        precos, _ = buscar_precos_rodape()
+        if precos:
+            cols = st.columns(5)
+            for i, (m, p) in enumerate(precos.items()):
+                with cols[i]: st.metric(m, f"${p:,.2f}")
+        st.info("🔄 Acesse **Scanner de Arbitragem** para ver oportunidades em tempo real.")
+        if user_plano == "Gratuito":
+            st.warning("💡 Dica: Atualize para o plano **Pro** para monitorar mais moedas!")
     
+    # 🔍 SCANNER
     elif pagina == "🔍 Scanner de Arbitragem":
-        if not ativo and user_plano != "Gratuito":
-            st.warning("🔒 Libere seu plano para acessar.")
+        if not perm["scanner_basico"]:
+            bloqueio_acesso()
         else:
             st.header("🔍 Scanner de Arbitragem")
-            st.info("Buscando diferenças de preço entre corretoras...")
-            
-            with st.spinner("Analisando mercado..."):
-                oportunidades = escanear_oportunidades()
-            
-            if oportunidades:
-                st.success(f"✅ {len(oportunidades)} oportunidade(s) encontrada(s)!")
-                st.markdown("---")
-                for op in oportunidades:
-                    st.markdown(f"""
-                    <div style='background:rgba(34,197,94,0.08);border-left:4px solid #22c55e;padding:15px;border-radius:0 10px 10px 0;margin:10px 0;'>
-                    <h4 style='margin:0;color:#22c55e;'>🪙 {op['moeda']} — Lucro estimado: {op['lucro_pct']}%</h4>
-                    <p style='margin:8px 0;'>✅ Comprar na <strong>{op['comprar_bolsa']}</strong>: ${op['comprar_preco']:.4f}<br>
-                    💰 Vender na <strong>{op['vender_bolsa']}</strong>: ${op['vender_preco']:.4f}<br>
-                    📈 Diferença: {((op['vender_preco'] - op['comprar_preco'])/op['comprar_preco']*100):.2f}%</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+            qtd = limite_moedas_usuario()
+            moedas_disp = LISTA_MOEDAS_COMPLETA[:qtd]
+            with st.expander("⚙️ Configurar"):
+                moedas_sel = st.multiselect("Moedas", options=moedas_disp, default=moedas_disp[:min(5, qtd)])
+                lucro_min = st.slider("Lucro mínimo (%)", 0.05, 5.0, 0.3, 0.05)
+            if not moedas_sel:
+                st.info("👆 Selecione moedas.")
             else:
-                st.info("⏳ Nenhuma oportunidade no momento. As diferenças estão pequenas. Atualize em instantes.")
+                with st.spinner("Analisando..."):
+                    oportunidades = escanear_oportunidades(moedas_sel, lucro_min)
+                if perm["historico_24h"] and oportunidades:
+                    salvar_no_historico(oportunidades)
+                if oportunidades:
+                    st.success(f"✅ {len(oportunidades)} oportunidade(s)!")
+                    for op in oportunidades:
+                        st.markdown(f"""
+                        <div style='background:rgba(34,197,94,0.08);border-left:4px solid #22c55e;padding:15px;margin:10px 0;'>
+                        <h4 style='margin:0;color:#22c55e;'>🪙 {op['moeda']} — {op['lucro_pct']}%</h4>
+                        <p>Comprar: <strong>{op['comprar_bolsa']}</strong> ${op['comprar_preco']:.4f}<br>
+                        Vender: <strong>{op['vender_bolsa']}</strong> ${op['vender_preco']:.4f}<br>
+                        ⏰ {op['horario']}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("⏳ Nenhuma oportunidade agora. Tente mais tarde.")
     
+    # ⏰ HISTÓRICO
     elif pagina == "⏰ Histórico":
-        st.info("⏰ Histórico em desenvolvimento...")
+        if not perm["historico_24h"]:
+            bloqueio_acesso("Histórico apenas Pro/Premium")
+        else:
+            st.header("⏰ Histórico de Oportunidades")
+            hist = carregar_json(ARQUIVO_HISTORICO)
+            if not hist:
+                st.info("📋 Sem registro ainda.")
+            else:
+                limite = datetime.now() - timedelta(hours=24)
+                recentes = []
+                for op in hist.values():
+                    try:
+                        dt = datetime.strptime(op["horario"], "%d/%m/%Y %H:%M:%S")
+                        if dt >= limite:
+                            recentes.append(op)
+                    except:
+                        pass
+                if not recentes:
+                    st.info("📋 Nenhuma nos últimos 24h.")
+                else:
+                    st.success(f"📊 {len(recentes)} oportunidades nas últimas 24h")
+                    for op in sorted(recentes, key=lambda x: x["horario"], reverse=True):
+                        st.markdown(f"**{op['moeda']}** | {op['lucro_pct']}% | {op['horario']}")
     
+    # 🔔 ALERTAS
     elif pagina == "🔔 Alertas":
-        st.info("🔔 Alertas em desenvolvimento...")
+        st.header("🔔 Alertas")
+        max_alertas = perm["alertas_quantidade"]
+        st.info(f"Você pode configurar até {max_alertas} alerta(s)")
+        alertas = st.session_state.usuario.get("alertas", [])
+        if len(alertas) >= max_alertas:
+            st.warning("Limite de alertas atingido.")
+        else:
+            with st.form("novo_alerta"):
+                moeda = st.selectbox("Moeda", LISTA_MOEDAS_COMPLETA[:limite_moedas_usuario()])
+                lucro_alvo = st.number_input("Lucro alvo (%)", min_value=0.1, value=1.0, step=0.1)
+                email_alerta = st.checkbox("Receber por e-mail", disabled=not perm["alertas_email"])
+                if st.form_submit_button("🔔 Criar Alerta"):
+                    alertas.append({"moeda": moeda, "lucro_alvo": lucro_alvo, "email": email_alerta, "ativa": True})
+                    st.session_state.usuario["alertas"] = alertas
+                    st.success(f"✅ Alerta criado!")
+                    st.rerun()
+        if alertas:
+            st.subheader("Seus Alertas")
+            for i, a in enumerate(alertas):
+                st.markdown(f"{i+1}. {a['moeda']} → {a['lucro_alvo']}% | {'✅ Ativo' if a['ativa'] else '⏸️ Inativo'}")
     
+    # 🧮 CALCULADORA
     elif pagina == "🧮 Calculadora de Lucro":
         st.header("🧮 Calculadora de Lucro")
-        st.info("Calculadora em desenvolvimento...")
-    
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            preco_compra = st.number_input("Preço de Compra (US$)", min_value=0.0, step=0.0001, format="%.4f")
+            preco_venda = st.number_input("Preço de Venda (US$)", min_value=0.0, step=0.0001, format="%.4f")
+            valor_investido = st.number_input("Valor Investido (US$)", min_value=0.0, step=1.0)
+        
+        with col2:
+            st.info("📊 Resultado")
+            if compra > 0 and preco_venda > 0 and valor_investido > 0:
+                qtd_moedas = valor_investido / compra
+                valor_venda = qtd_moedas * preco_venda
+                lucro_bruto = valor_venda - valor_investido
+                taxa_compra = CORRETORAS["Binance"]["taxa_compra"] / 100
+                taxa_venda = CORRETORAS["Binance"]["taxa_venda"] / 100
+                custos = (valor_investido * taxa_compra) + (valor_venda * taxa_venda)
+                lucro_liquido = lucro_bruto - custos
+                percentual = (lucro_liquido / valor_investido) * 100 if valor_investido > 0 else 0
+                
+                st.metric("Quantidade de Moedas", f"{qtd_moedas:.6f}")
+                st.metric("Valor na Venda", f"US$ {valor_venda:.2f}")
+                st.metric("Lucro Bruto", f"US$ {lucro_bruto:.2f}")
+                st.metric("Taxas Estimadas", f"US$ {custos:.2f}")
+                st.metric("💵 LUCRO LÍQUIDO", f"US$ {lucro_liquido:.2f}", f"{percentual:.2f}%")
+            else:
+                st.info("Preencha os valores à esquerda")
+
+    # 📈 RESUMO DE MERCADO
     elif pagina == "📈 Resumo de Mercado":
         st.header("📈 Resumo de Mercado")
-        st.info("Resumo em desenvolvimento...")
-    
+        st.markdown("---")
+        precos, fonte = buscar_precos_rodape()
+        if precos:
+            for moeda, preco in precos.items():
+                st.metric(f"{moeda} / USDT", f"${preco:,.4f}")
+            st.info(f"Fonte: {fonte} • Atualizado automaticamente a cada 60 segundos")
+        else:
+            st.warning("Não foi possível carregar os preços. Tente novamente.")
+
+    # ⚙️ MINHAS CORRETORAS
     elif pagina == "⚙️ Minhas Corretoras":
-        st.header("⚙️ Minhas Corretoras")
-        st.info("Integração com corretoras em desenvolvimento...")
-    
+        if not perm["corretoras_integracao"]:
+            bloqueio_acesso("Integração com corretoras disponível apenas nos planos Pro e Premium")
+        else:
+            st.header("⚙️ Minhas Corretoras")
+            st.markdown("---")
+            st.info("🔑 Insira suas chaves API de cada corretora para integração")
+            
+            chaves_usuario = st.session_state.usuario.get("chaves", {})
+            
+            for corretora in CORRETORAS.keys():
+                with st.expander(f"🔌 {corretora}"):
+                    api_key = st.text_input(f"API Key — {corretora}", 
+                                           value=chaves_usuario.get(corretora, {}).get("api_key", ""), 
+                                           type="password", key=f"api_{corretora}")
+                    api_secret = st.text_input(f"API Secret — {corretora}", 
+                                              value=chaves_usuario.get(corretora, {}).get("api_secret", ""), 
+                                              type="password", key=f"secret_{corretora}")
+                    
+                    if st.button(f"💾 Salvar — {corretora}", key=f"save_{corretora}"):
+                        if "chaves" not in st.session_state.usuario:
+                            st.session_state.usuario["chaves"] = {}
+                        st.session_state.usuario["chaves"][corretora] = {
+                            "api_key": api_key,
+                            "api_secret": api_secret
+                        }
+                        st.success(f"✅ {corretora} salva!")
+                        st.rerun()
+
+    # 🔧 CONFIGURAÇÕES
     elif pagina == "🔧 Configurações":
-        st.header("🔧 Configurações")
-        st.info("Configurações em desenvolvimento...")
-    
+        if not perm["configuracoes"]:
+            bloqueio_acesso("Configurações avançadas disponíveis apenas nos planos Pro e Premium")
+        else:
+            st.header("🔧 Configurações da Conta")
+            st.markdown("---")
+            
+            config = st.session_state.usuario.get("config", {"lucro_min": 0.3, "intervalo": 60})
+            
+            novo_lucro = st.slider("Lucro mínimo padrão (%)", 0.05, 5.0, float(config.get("lucro_min", 0.3)), 0.05)
+            novo_intervalo = st.slider("Intervalo de verificação (segundos)", 15, 300, int(config.get("intervalo", 60)), 15)
+            
+            st.markdown("---")
+            st.subheader("🔐 Alterar Senha")
+            senha_atual = st.text_input("Senha Atual", type="password")
+            nova_senha = st.text_input("Nova Senha", type="password")
+            confirma_senha = st.text_input("Confirmar Nova Senha", type="password")
+            
+            if st.button("💾 SALVAR TUDO", type="primary", use_container_width=True):
+                st.session_state.usuario["config"] = {
+                    "lucro_min": novo_lucro,
+                    "intervalo": novo_intervalo
+                }
+                if nova_senha:
+                    if nova_senha != confirma_senha:
+                        st.error("❌ Senhas não coincidem!")
+                    else:
+                        usuarios = carregar_json(ARQUIVO_USUARIOS)
+                        if usuarios.get(user_email, {}).get("senha") == senha_atual:
+                            usuarios[user_email]["senha"] = nova_senha
+                            salvar_json(ARQUIVO_USUARIOS, usuarios)
+                            st.success("✅ Senha alterada!")
+                        else:
+                            st.error("❌ Senha atual incorreta!")
+                else:
+                    st.success("✅ Configurações salvas!")
+                st.rerun()
+
+    # 📑 RELATÓRIOS
+    elif pagina == "📑 Relatórios":
+        if not perm["relatorios"]:
+            bloqueio_acesso("Relatórios detalhados disponíveis apenas no plano Premium")
+        else:
+            st.header("📑 Relatórios")
+            st.markdown("---")
+            st.info("📊 Relatório completo de oportunidades detectadas")
+            
+            historico = carregar_json(ARQUIVO_HISTORICO)
+            if historico:
+                st.subheader("📈 Resumo Geral")
+                total = len(historico)
+                media_lucro = sum(op.get("lucro_pct", 0) for op in historico.values()) / total if total > 0 else 0
+                max_lucro = max((op.get("lucro_pct", 0) for op in historico.values()), default=0)
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Total de Oportunidades", total)
+                col2.metric("Média de Lucro", f"{media_lucro:.2f}%")
+                col3.metric("Maior Lucro", f"{max_lucro:.2f}%")
+                
+                st.download_button(
+                    "📥 Baixar Relatório Completo (CSV)",
+                    data="moeda,comprar_em,vender_em,lucro_pct,horario\n" + 
+                    "\n".join([f"{op['moeda']},{op['comprar_bolsa']},{op['vender_bolsa']},{op['lucro_pct']},{op['horario']}" 
+                              for op in historico.values()]),
+                    file_name=f"relatorio_arbitragem_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.info("Ainda não há dados para gerar relatório.")
+
+    # 💳 ALTERAR PLANO
     elif pagina == "💳 Alterar Plano":
-        st.header("💳 Alterar / Atualizar Plano")
+        st.header("💳 Alterar Plano")
+        st.markdown("---")
+        st.info(f"Plano atual: **{user_plano}**")
+        st.markdown("---")
         exibir_escolha_planos(user_email)
-    
+
     exibir_rodape_precos()
