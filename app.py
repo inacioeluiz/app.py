@@ -499,9 +499,6 @@ def enviar_email(destinatario, assunto, mensagem_html):
         return False, f"Erro: {str(e)}"
 
 # ==============================================
-# 🛠️ PAINEL DE ADMINISTRAÇÃO
-# ==============================================
-# ==============================================
 # FUNÇÃO DE ENVIO DE E-MAIL
 # ==============================================
 import smtplib
