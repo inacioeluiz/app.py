@@ -11,13 +11,13 @@ from urllib.parse import quote
 st.set_page_config(page_title="Arbitragem AI", page_icon="🤖", layout="wide")
 
 CONFIG = {
-    "pix_nome_recebedor": "Inacio Silva",
-    "pix_chave": "11571293744",
+    "pix_nome_recebedor": "Seu Nome Completo",
+    "pix_chave": "sua.chave.pix@exemplo.com",
     "whatsapp_admin": "5521997524939",
-    "email_suporte": "suportearbitrageai@gmail.com"
+    "email_suporte": "seuemail@exemplo.com"
 }
 
-SENHA_ADMIN = "1911Gilson@"  # 🔑 TROQUE ESTA SENHA PELA SUA!
+SENHA_ADMIN = "admin123"  # 🔑 TROQUE ESTA SENHA PELA SUA!
 
 ARQUIVO_USUARIOS = "usuarios.json"
 
@@ -198,8 +198,20 @@ def exibir_pagamento_pix(plano, email_cliente):
         st.info("👆 Selecione o comprovante acima para habilitar o botão")
 
 # ==============================================
-# 🔍 SCANNER DE ARBITRAGEM
+# 🔍 BUSCA DE PREÇOS — CORRIGIDA E SIMPLIFICADA
 # ==============================================
+def buscar_preco_binance(simbolo):
+    """Função exclusiva para Binance - mais confiável e rápida"""
+    try:
+        url = f"https://api.binance.com/api/v3/ticker/price?symbol={simbolo.upper()}USDT"
+        resp = requests.get(url, timeout=10)
+        dados = resp.json()
+        if "price" in dados:
+            return float(dados["price"])
+    except Exception as e:
+        pass
+    return None
+
 def buscar_preco_bolsa(simbolo, corretora):
     par = simbolo.upper() + "USDT"
     urls = {
@@ -212,7 +224,7 @@ def buscar_preco_bolsa(simbolo, corretora):
     if corretora not in urls:
         return None
     try:
-        resp = requests.get(urls[corretora], timeout=15)
+        resp = requests.get(urls[corretora], timeout=10)
         dados = resp.json()
         if corretora == "Binance" and "price" in dados:
             return float(dados["price"])
@@ -288,7 +300,7 @@ def exibir_resumo_mercado():
     moedas = [("BTC", "Bitcoin"), ("ETH", "Ethereum"), ("SOL", "Solana"), ("XRP", "Ripple"), ("ADA", "Cardano")]
     cols = st.columns(len(moedas))
     for idx, (sigla, nome) in enumerate(moedas):
-        preco = buscar_preco_bolsa(sigla, "Binance")
+        preco = buscar_preco_binance(sigla)
         with cols[idx]:
             if preco:
                 st.metric(sigla, f"${preco:,.2f}")
@@ -493,14 +505,15 @@ def painel_administracao():
                         st.rerun()
 
 # ==============================================
-# 📡 RODAPÉ — PREÇOS COMPACTO E FUNCIONAL
+# 📡 RODAPÉ — AGORA COM FUNÇÃO CORRIGIDA
 # ==============================================
 def exibir_rodape_precos():
     moedas_rodape = ["BTC", "ETH", "SOL", "XRP", "ADA"]
     
     precos = {}
     for sigla in moedas_rodape:
-        p = buscar_preco_bolsa(sigla, "Binance")
+        # Usa função exclusiva e simplificada para Binance
+        p = buscar_preco_binance(sigla)
         precos[sigla] = p
     
     st.markdown("<hr style='margin:0.3rem 0;opacity:0.2'>", unsafe_allow_html=True)
