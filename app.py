@@ -4,8 +4,6 @@ import os
 import requests
 from datetime import datetime
 from urllib.parse import quote
-import io
-import base64
 
 # ==============================================
 # ⚙️ CONFIGURAÇÕES — ATUALIZE SEUS DADOS ABAIXO!
@@ -17,7 +15,7 @@ CONFIG = {
     "pix_chave": "sua.chave.pix@exemplo.com",
     "whatsapp_admin": "5521997524939",
     "email_suporte": "seuemail@exemplo.com",
-    "coinmarketcap_api_key": ""
+    "coinmarketcap_api_key": ""  # Coloque sua chave aqui
 }
 
 SENHA_ADMIN = "admin123"
@@ -76,7 +74,7 @@ def gerar_id_pagamento():
     return f"PAG{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
 # ==============================================
-# 💳 PIX — CÓDIGO + QR Code (sem biblioteca externa)
+# 💳 PIX — CÓDIGO + QR Code
 # ==============================================
 def gerar_codigo_pix(valor, descricao, email):
     chave = CONFIG["pix_chave"]
@@ -84,7 +82,6 @@ def gerar_codigo_pix(valor, descricao, email):
     return f"00020126580014br.gov.bcb.pix0136{chave}5204000053039865802BR59{len(nome):02d}{nome}6008BRASILIA62070503***64330015{email}0103{descricao}6502BR7301{valor:.2f}".replace(".", ""), chave
 
 def gerar_link_qr_pix(codigo_pix):
-    """Gera QR Code usando serviço público (sem instalar nada)"""
     return f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={quote(codigo_pix)}"
 
 def registrar_pagamento_pendente(email, plano, valor, id_pag, nome_arquivo=""):
@@ -220,28 +217,35 @@ def exibir_escolha_planos(email_cliente):
                     st.stop()
 
 # ==============================================
-# 🔍 PREÇOS — CoinMarketCap + CoinGecko + Binance
+# 🔍 PREÇOS — CoinMarketCap (API CORRIGIDA) + CoinGecko + Binance
 # ==============================================
 @st.cache_data(ttl=60)
 def buscar_precos_rodape():
     moedas = ["BTC", "ETH", "SOL", "XRP", "ADA"]
     precos = {}
     
+    # Fonte 1: CoinMarketCap — usando a estrutura correta
     if CONFIG["coinmarketcap_api_key"]:
         try:
             headers = {"X-CMC_PRO_API_KEY": CONFIG["coinmarketcap_api_key"]}
             params = {"symbol": ",".join(moedas), "convert": "USD"}
-            resp = requests.get("https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest", headers=headers, params=params, timeout=10)
+            resp = requests.get(
+                "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+                headers=headers,
+                params=params,
+                timeout=10
+            )
             dados = resp.json()
-            if "data" in dados:
+            if "data" in dados and isinstance(dados["data"], dict):
                 for sigla in moedas:
                     if sigla in dados["data"]:
                         precos[sigla] = dados["data"][sigla]["quote"]["USD"]["price"]
                 if len(precos) == 5:
                     return precos, "CoinMarketCap"
-        except:
+        except Exception as e:
             pass
     
+    # Fonte 2: CoinGecko — reserva confiável
     try:
         url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,cardano&vs_currencies=usd"
         resp = requests.get(url, timeout=10)
@@ -256,6 +260,7 @@ def buscar_precos_rodape():
     except:
         pass
     
+    # Fonte 3: Binance — última reserva
     try:
         for sigla in moedas:
             resp = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={sigla}USDT", timeout=8)
@@ -600,7 +605,7 @@ else:
         if not ativo and user_plano != "Gratuito":
             st.warning("🔒 Libere seu plano para acessar.")
         else:
-            exibir_scanner_arbitragem() if 'exibir_scanner_arbitragem' in dir() else st.info("🔍 Scanner em desenvolvimento...")
+            st.info("🔍 Scanner em desenvolvimento...")
     
     elif pagina == "⏰ Histórico":
         st.info("⏰ Histórico em desenvolvimento...")
