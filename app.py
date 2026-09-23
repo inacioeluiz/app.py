@@ -535,16 +535,16 @@ def enviar_email(destinatario, assunto, mensagem_html):
 # ==============================================
     elif pagina == "Painel de Administracao":
         if st.session_state.get("admin_logado") != True:
-            senha_admin = st.text_input("🔐 Senha de Administrador", type="password")
-            if st.button("🔑 ENTRAR", type="primary"):
+            senha_admin = st.text_input("Senha de Administrador", type="password")
+            if st.button("ENTRAR", type="primary"):
                 if senha_admin == "admin123":
                     st.session_state["admin_logado"] = True
                     st.rerun()
                 else:
-                    st.error("❌ Senha incorreta!")
+                    st.error("Senha incorreta!")
             st.stop()
         
-        st.header("🛠️ PAINEL DE ADMINISTRAÇÃO")
+        st.header("PAINEL DE ADMINISTRAÇÃO")
         st.markdown("---")
         
         aba_admin1, aba_admin2, aba_admin3 = st.tabs(["📋 Pagamentos", "⚙️ Sistema", "📧 E-mail"])
