@@ -20,7 +20,9 @@ CONFIG = {
     "smtp_servidor": "smtp.gmail.com",
     "smtp_porta": 587,
     "coinmarketcap_api_key": "",
-    "senha_admin": "admin123"
+    "senha_admin": "admin123",
+    "logo_principal": "logo_principal.png",
+    "logo_pequeno": "logo_pequeno.png"
 }
 
 ARQUIVO_USUARIOS = "usuarios.json"
@@ -73,6 +75,24 @@ def salvar_json(caminho, dados):
 dados_sistema = carregar_json(ARQUIVO_SISTEMA, {})
 if dados_sistema:
     CONFIG.update(dados_sistema)
+
+# ==============================================
+# FUNCOES DE EXIBICAO DE LOGO
+# ==============================================
+def exibir_logo_principal(largura=250):
+    """Exibe o logo grande na tela de login e principal"""
+    caminho = CONFIG.get("logo_principal", "logo_principal.png")
+    if os.path.exists(caminho):
+        st.image(caminho, width=largura)
+    else:
+        st.markdown("<h1 style='text-align: center; color: #22c55e;'>ARBITRAGEM AI</h1>", unsafe_allow_html=True)
+
+def exibir_logo_sidebar(largura=100):
+    """Exibe o logo pequeno no canto superior esquerdo da barra lateral"""
+    caminho = CONFIG.get("logo_pequeno", "logo_pequeno.png")
+    if os.path.exists(caminho):
+        st.sidebar.image(caminho, width=largura)
+        st.sidebar.markdown("---")
 
 # ==============================================
 # FUNCAO DE ENVIO DE E-MAIL
@@ -175,7 +195,7 @@ usuarios = carregar_json(ARQUIVO_USUARIOS, {})
 # TELA DE LOGIN / CADASTRO
 # ==============================================
 def tela_login():
-    st.title("Arbitragem AI")
+    exibir_logo_principal()
     st.subheader("Analise de oportunidades entre corretoras")
     st.warning("Apenas analise. Nao e recomendacao de investimento.")
     st.markdown("---")
@@ -348,6 +368,7 @@ def tela_pagamento():
 # PAINEL PRINCIPAL DO USUARIO
 # ==============================================
 def painel_principal():
+    exibir_logo_sidebar()
     usuario = st.session_state["usuario"]
     dados = usuarios[usuario]
     plano = dados.get("plano", "Gratuito")
@@ -412,6 +433,7 @@ def painel_principal():
 # PAINEL DE ADMINISTRACAO
 # ==============================================
 def painel_administracao():
+    exibir_logo_sidebar()
     if st.session_state.get("admin_logado") != True:
         senha_admin = st.text_input("Senha de Administrador", type="password")
         if st.button("ENTRAR", type="primary"):
@@ -554,6 +576,9 @@ def painel_administracao():
         novo_whatsapp = st.text_input("WhatsApp do Administrador", value=dados_sis.get("whatsapp_admin", CONFIG["whatsapp_admin"]))
         nova_senha_admin = st.text_input("Senha do Painel Admin", value=dados_sis.get("senha_admin", CONFIG["senha_admin"]))
         
+        logo_principal_nome = st.text_input("Nome do arquivo — Logo Principal", value=dados_sis.get("logo_principal", CONFIG["logo_principal"]))
+        logo_pequeno_nome = st.text_input("Nome do arquivo — Logo Lateral", value=dados_sis.get("logo_pequeno", CONFIG["logo_pequeno"]))
+        
         if st.button("SALVAR DADOS DO SISTEMA", type="primary"):
             CONFIG["pix_nome_recebedor"] = novo_nome
             CONFIG["pix_chave"] = nova_chave
@@ -561,6 +586,8 @@ def painel_administracao():
             CONFIG["coinmarketcap_api_key"] = nova_chave_cmc
             CONFIG["whatsapp_admin"] = novo_whatsapp
             CONFIG["senha_admin"] = nova_senha_admin
+            CONFIG["logo_principal"] = logo_principal_nome
+            CONFIG["logo_pequeno"] = logo_pequeno_nome
             
             dados_salvar = carregar_json(ARQUIVO_SISTEMA, {})
             dados_salvar.update({
@@ -569,7 +596,9 @@ def painel_administracao():
                 "email_suporte": novo_email_sup,
                 "coinmarketcap_api_key": nova_chave_cmc,
                 "whatsapp_admin": novo_whatsapp,
-                "senha_admin": nova_senha_admin
+                "senha_admin": nova_senha_admin,
+                "logo_principal": logo_principal_nome,
+                "logo_pequeno": logo_pequeno_nome
             })
             salvar_json(ARQUIVO_SISTEMA, dados_salvar)
             st.success("Dados salvos! Atualize a pagina.")
